@@ -70,6 +70,11 @@ const Landing = () => {
                 Sign In
               </button>
             </Link>
+            <Link to="/company/register">
+              <button className="px-8 py-4 bg-green-600 text-white rounded-2xl font-black text-lg hover:bg-green-700 transition-all shadow-lg shadow-green-200">
+                Company Recruitment
+              </button>
+            </Link>
           </div>
         </div>
       </section>

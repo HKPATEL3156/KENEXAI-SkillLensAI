@@ -4,6 +4,10 @@ import Login from "./pages/Login";
 import Register from "./components/Register";
 import DashboardRoutes from "./routes/Dashboardroutes";
 import QuizPage from "./pages/QuizPage";
+import CompanyRegister from "./pages/CompanyRegister";
+import AdminLogin from "./pages/AdminLogin";
+import AdminDashboard from "./pages/AdminDashboard";
+import AdminRegister from "./pages/AdminRegister";
 
 function App() {
   return (
@@ -13,6 +17,10 @@ function App() {
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/company/register" element={<CompanyRegister />} />
+        <Route path="/admin/login" element={<AdminLogin />} />
+        <Route path="/admin/register" element={<AdminRegister />} />
+        <Route path="/admin/dashboard" element={<AdminDashboard />} />
 
         {/* Exam route - standalone full-screen page (no dashboard layout) */}
         <Route path="/exam" element={<QuizPage />} />
