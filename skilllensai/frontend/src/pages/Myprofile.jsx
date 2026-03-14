@@ -118,6 +118,8 @@ const MyProfile = () => {
     loadProfile();
   }, []);
 
+  
+
   // Listen for external profile updates (header / other pages) and reload profile to keep UI in sync
   useEffect(() => {
     const onProfileUpdated = (ev) => {
@@ -513,6 +515,8 @@ const MyProfile = () => {
     e?.preventDefault?.();
     await uploadResumeFile();
   };
+
+  
 
   // Experience helpers
   const addExperience = () => {
@@ -927,6 +931,8 @@ const MyProfile = () => {
                   <TagInput errorKey={`career.skills`} values={draft.career?.skills || []} onChange={vals => setField('career.skills', vals)} placeholder="Add skill and press Enter" />
                   {errors['career.skills'] && <div className="text-xs text-red-600 mt-1">{errors['career.skills']}</div>}
                 </Field>
+
+                
 
                 <div className="md:col-span-3">
                   <Field label="Resume" help="Upload a resume (PDF/DOC). We may extract skills automatically if available.">

@@ -263,29 +263,34 @@ exports.uploadResume = async (req, res, next) => {
       console.error("ML extraction failed:", mlErr.message || mlErr);
     }
 
-    // Merge extracted skills into user's skills uniquely
+    // Overwrite the user's main skill list with the newly extracted skills
     if (extractedSkills && extractedSkills.length) {
-      const existing = Array.isArray(user.skills) ? user.skills : [];
-      const merged = Array.from(
-        new Set(
-          [
-            ...existing.map((s) => String(s).trim()),
-            ...extractedSkills.map((s) => String(s).trim()),
-          ].filter(Boolean),
-        ),
+      const cleaned = Array.from(
+        new Set(extractedSkills.map((s) => String(s).trim()).filter(Boolean)),
       );
-      user.skills = merged;
+      user.skills = cleaned;
+    } else {
+      // if extraction failed, clear user's skills to avoid stale data
+      user.skills = [];
     }
 
     await user.save();
 
-    // Also update Career record for compatibility with other endpoints
     try {
-      await Career.findOneAndUpdate(
+      const update = await Career.findOneAndUpdate(
         { userId: userId },
-        { resumeUrl: relativePath, extractedSkills },
+        {
+          $set: { resumeUrl: relativePath, extractedSkills },
+          $push: {
+            skillSnapshots: {
+              skills: extractedSkills,
+              resumeUrl: relativePath,
+            },
+          },
+        },
         { returnDocument: "after", upsert: true, setDefaultsOnInsert: true },
       );
+      // note: update contains the career document after the push
     } catch (cErr) {
       console.error("Failed to update Career record:", cErr.message || cErr);
     }

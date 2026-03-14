@@ -50,6 +50,17 @@ const careerSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    // snapshots of extracted skills per resume upload
+    skillSnapshots: {
+      type: [
+        {
+          skills: { type: [String], default: [] },
+          resumeUrl: { type: String },
+          createdAt: { type: Date, default: Date.now },
+        },
+      ],
+      default: [],
+    },
   },
   { timestamps: true },
 );

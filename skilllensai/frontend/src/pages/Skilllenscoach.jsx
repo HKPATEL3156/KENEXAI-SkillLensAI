@@ -41,6 +41,8 @@ const SkillLensCoach = () => {
   const [attempts, setAttempts] = useState([]);
   const [career, setCareer] = useState(null);
   const [profileData, setProfileData] = useState(null);
+  const [suggestionLoading, setSuggestionLoading] = useState(false);
+  const [suggestionResult, setSuggestionResult] = useState(null);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -483,6 +485,76 @@ const SkillLensCoach = () => {
 
           <Step idx={4} title="Career Recommendation" open={openStep===4} onToggle={() => setOpenStep(openStep===4?null:4)} locked={step4Locked}>
             <div className="text-sm text-gray-700">Recommendations will be shown based on quiz marks and academic score.</div>
+            <div className="mt-4">
+              {(() => {
+                // compute academic grade
+                const cgpas = extractCgpas(career, profileData);
+                const avgCgpa = cgpas.length ? (cgpas.reduce((sum, item) => sum + (item.cgpa || 0), 0) / cgpas.length) : 0;
+                const academicGrade = Math.min(100, Number((avgCgpa * 10).toFixed(2)));
+
+                // compute latest submitted quiz score (percentage-like)
+                const submittedAttempts = attempts.filter(a => a.status === 'submitted').slice().sort((a,b)=> new Date(b.createdAt) - new Date(a.createdAt));
+                const latest = submittedAttempts[0];
+                const quizScore = latest
+                  ? ((latest.percentage ?? latest.percent ?? (latest.obtainedMarks && latest.totalMarks ? Math.round((latest.obtainedMarks / latest.totalMarks) * 100) : latest.obtainedMarks)) || 0)
+                  : 0;
+
+                const eligible = (Number(quizScore) > 70) && (Number(academicGrade) > 75);
+
+                return (
+                  <div className="bg-white rounded-lg p-4 mt-3">
+                    <div className="mb-3">
+                      <div className="text-sm text-gray-600">Latest quiz score: <span className="font-semibold">{quizScore || 'N/A'}</span></div>
+                      <div className="text-sm text-gray-600">Academic grade: <span className="font-semibold">{academicGrade || 'N/A'}</span></div>
+                    </div>
+
+                    {eligible ? (
+                      <div>
+                        <div className="text-green-700 font-bold mb-3">You are eligible for the job</div>
+                        <div className="flex items-center gap-3 mb-3">
+                          <button onClick={async () => {
+                            try {
+                              setSuggestionLoading(true); setSuggestionResult(null);
+                              // Use axios instance that attaches auth token
+                              const resp = await api.get('/career/predict-from-quiz');
+                              const json = resp.data;
+                              if (resp.status === 200) {
+                                const role = json.prediction && (json.prediction.role || json.prediction?.role_name || json.prediction?.roleName || json.prediction?.label) ? (json.prediction.role || json.prediction.role_name || json.prediction.roleName || json.prediction.label) : (json.prediction && json.prediction[0]) || null;
+                                setSuggestionResult({ role, usedSkills: json.usedSkills || [] });
+                              } else {
+                                setSuggestionResult({ error: json.error || json.message || 'Prediction failed' });
+                              }
+                            } catch (e) {
+                              const msg = e?.response?.data?.error || e?.response?.data?.message || e.message || 'Request failed';
+                              setSuggestionResult({ error: msg });
+                            } finally { setSuggestionLoading(false); }
+                          }} disabled={suggestionLoading} className="bg-blue-600 text-white px-4 py-2 rounded-lg shadow">{suggestionLoading ? 'Predicting...' : 'Career recommendation'}</button>
+
+                          {suggestionResult && suggestionResult.role && (
+                            <>
+                              <div className="text-sm text-indigo-700 font-semibold">Suggested role: {suggestionResult.role}</div>
+                              <button onClick={() => navigate(`/jobs?role=${encodeURIComponent(suggestionResult.role)}`)} className="ml-3 bg-green-600 text-white px-3 py-1 rounded">Find the job</button>
+                            </>
+                          )}
+
+                          {suggestionResult && suggestionResult.error && (
+                            <div className="text-sm text-red-600">{suggestionResult.error}</div>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <div className="text-red-700 font-bold mb-3">You are not eligible for job</div>
+                        <div className="flex gap-3">
+                          <button onClick={() => navigate('/learn')} className="bg-yellow-500 text-white px-4 py-2 rounded-lg">Learn skill</button>
+                          <button onClick={() => navigate('/upgrade')} className="bg-gray-800 text-white px-4 py-2 rounded-lg">Upgrade skill</button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
           </Step>
         </div>
       </div>
