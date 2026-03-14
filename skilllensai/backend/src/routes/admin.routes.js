@@ -17,5 +17,12 @@ router.post(
   adminCtrl.verifyAdmin,
   adminCtrl.approveCompany,
 );
+router.post(
+  "/company-requests/:id/reject",
+  adminCtrl.verifyAdmin,
+  adminCtrl.rejectCompany,
+);
+
+router.get("/summary", adminCtrl.verifyAdmin, adminCtrl.getSummary);
 
 module.exports = router;

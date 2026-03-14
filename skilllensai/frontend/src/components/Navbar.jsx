@@ -1,63 +1,118 @@
-import { Link } from "react-router-dom"
-import logo from "../assets/logo.png"
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
 const Navbar = ({ isLanding }) => {
+  const nav = useNavigate();
+  const location = useLocation();
+
   const scrollToSection = (id) => {
-    const section = document.querySelector(id)
+    const section = document.querySelector(id);
     if (section) {
-      section.scrollIntoView({ behavior: "smooth" })
+      section.scrollIntoView({ behavior: "smooth" });
     }
-  }
+  };
+
+  const isAdminLoggedIn =
+    typeof window !== "undefined" && !!localStorage.getItem("adminToken");
+
+  const handleAdminLogout = () => {
+    localStorage.removeItem("adminToken");
+    nav("/");
+  };
+
+  const onAdminDashboard = location.pathname.startsWith("/admin");
 
   return (
-    <nav className="fixed top-0 w-full bg-gradient-to-r from-blue-600 to-indigo-800 shadow-lg z-50">
+    <nav className="fixed top-0 z-50 w-full bg-gradient-to-r from-blue-600 to-indigo-800 shadow-lg">
+      <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+        {/* Logo */}
+        <Link to="/" className="flex items-center">
+          <div className="flex items-center gap-3">
+            {/* Icon Container */}
+            <div className="rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 p-3 shadow-lg">
+              <i className="fas fa-brain text-xl text-white" />
+            </div>
 
-      <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-
-       {/* Logo */}
-      <Link to="/" className="flex items-center">
-        <div className="flex items-center gap-3">
-
-          {/* Icon Container */}
-          <div className="bg-gradient-to-br from-purple-500 to-pink-500 p-3 rounded-xl shadow-lg">
-            <i className="fas fa-brain text-white text-xl"></i>
+            {/* Brand Name */}
+            <span className="text-3xl font-extrabold tracking-wide text-white">
+              SkillLens <span className="text-yellow-400">AI</span>
+            </span>
           </div>
-
-          {/* Brand Name */}
-          <span className="text-white text-3xl font-extrabold tracking-wide">
-            SkillLens <span className="text-yellow-400">AI</span>
-          </span>
-
-        </div>
-      </Link>
-
+        </Link>
 
         {/* Menu */}
-        <div className="hidden md:flex items-center gap-8 text-white font-semibold">
-
-          {isLanding && (
+        <div className="hidden items-center gap-8 font-semibold text-white md:flex">
+          {isLanding && !isAdminLoggedIn && (
             <>
-              <a href="#features" onClick={() => scrollToSection("#features")} className="hover:text-yellow-300 transition duration-300">Features</a>
-              <a href="#how" onClick={() => scrollToSection("#how")} className="hover:text-yellow-300 transition duration-300">How It Works</a>
-              <a href="#reviews" onClick={() => scrollToSection("#reviews")} className="hover:text-yellow-300 transition duration-300">Reviews</a>
-              <a href="#about" onClick={() => scrollToSection("#about")} className="hover:text-yellow-300 transition duration-300">About Us</a>
+              <a
+                href="#features"
+                onClick={() => scrollToSection("#features")}
+                className="transition duration-300 hover:text-yellow-300"
+              >
+                Features
+              </a>
+              <a
+                href="#how"
+                onClick={() => scrollToSection("#how")}
+                className="transition duration-300 hover:text-yellow-300"
+              >
+                How It Works
+              </a>
+              <a
+                href="#reviews"
+                onClick={() => scrollToSection("#reviews")}
+                className="transition duration-300 hover:text-yellow-300"
+              >
+                Reviews
+              </a>
+              <a
+                href="#about"
+                onClick={() => scrollToSection("#about")}
+                className="transition duration-300 hover:text-yellow-300"
+              >
+                About Us
+              </a>
             </>
           )}
 
-          <Link to="/login" className="hover:text-yellow-300 transition duration-300">
-            Login
-          </Link>
+          {!isAdminLoggedIn && (
+            <>
+              <Link
+                to="/login"
+                className="transition duration-300 hover:text-yellow-300"
+              >
+                Login
+              </Link>
 
-          <Link to="/register">
-            <button className="bg-yellow-400 text-blue-900 px-6 py-2 rounded-lg hover:bg-yellow-500 transition duration-300 shadow-lg">
-              Get Started Free
-            </button>
-          </Link>
+              <Link to="/register">
+                <button className="rounded-lg bg-yellow-400 px-6 py-2 text-blue-900 shadow-lg transition duration-300 hover:bg-yellow-500">
+                  Get Started Free
+                </button>
+              </Link>
+            </>
+          )}
 
+          {isAdminLoggedIn && (
+            <div className="flex items-center gap-3">
+              {!onAdminDashboard && (
+                <Link
+                  to="/admin/dashboard"
+                  className="text-sm transition duration-300 hover:text-yellow-300"
+                >
+                  Admin Dashboard
+                </Link>
+              )}
+              <button
+                onClick={handleAdminLogout}
+                className="rounded-lg border border-white/30 px-4 py-1.5 text-sm text-white transition duration-300 hover:bg-white/10"
+              >
+                Logout
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </nav>
-  )
-}
+  );
+};
 
-export default Navbar
+export default Navbar;

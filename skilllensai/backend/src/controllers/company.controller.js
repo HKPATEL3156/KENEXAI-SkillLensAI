@@ -1,5 +1,6 @@
 const Company = require("../models/Company");
 const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 
 exports.register = async (req, res, next) => {
   try {
@@ -82,6 +83,112 @@ exports.reject = async (req, res, next) => {
     );
     if (!comp) return res.status(404).json({ message: "Not found" });
     res.json({ message: "Rejected", company: comp });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.login = async (req, res, next) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password)
+      return res
+        .status(400)
+        .json({ message: "Email and password are required" });
+
+    const company = await Company.findOne({ email }).select(
+      "+password status allowedToRecruit",
+    );
+    if (!company) return res.status(404).json({ message: "Company not found" });
+
+    if (company.status !== "approved" || !company.allowedToRecruit) {
+      return res.status(403).json({
+        message: "Company is not approved to login yet",
+      });
+    }
+
+    const match = await bcrypt.compare(password, company.password);
+    if (!match) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    if (!process.env.JWT_SECRET) {
+      return res
+        .status(500)
+        .json({ message: "Server authentication misconfigured" });
+    }
+
+    const token = jwt.sign(
+      {
+        role: "company",
+        companyId: company._id,
+        email: company.email,
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "8h" },
+    );
+
+    res.json({
+      token,
+      company: {
+        id: company._id,
+        companyName: company.companyName,
+        email: company.email,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.login = async (req, res, next) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password)
+      return res
+        .status(400)
+        .json({ message: "Email and password are required" });
+
+    const company = await Company.findOne({ email }).select(
+      "+password status allowedToRecruit",
+    );
+    if (!company) return res.status(404).json({ message: "Company not found" });
+
+    if (company.status !== "approved" || !company.allowedToRecruit) {
+      return res.status(403).json({
+        message: "Company is not approved to login yet",
+      });
+    }
+
+    const match = await bcrypt.compare(password, company.password);
+    if (!match) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    if (!process.env.JWT_SECRET) {
+      return res
+        .status(500)
+        .json({ message: "Server authentication misconfigured" });
+    }
+
+    const token = jwt.sign(
+      {
+        role: "company",
+        companyId: company._id,
+        email: company.email,
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "8h" },
+    );
+
+    res.json({
+      token,
+      company: {
+        id: company._id,
+        companyName: company.companyName,
+        email: company.email,
+      },
+    });
   } catch (err) {
     next(err);
   }

@@ -23,4 +23,7 @@ const upload = multer({ storage });
 // Public: company registration with optional document
 router.post("/register", upload.single("document"), companyController.register);
 
+// Public: company login
+router.post("/login", companyController.login);
+
 module.exports = router;

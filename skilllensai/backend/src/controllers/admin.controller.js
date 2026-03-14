@@ -2,6 +2,7 @@ const jwt = require("jsonwebtoken");
 const Company = require("../models/Company");
 const User = require("../models/User");
 const Admin = require("../models/Admin");
+const QuizAttempt = require("../models/QuizAttempt");
 const bcrypt = require("bcryptjs");
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev_admin_secret";
@@ -160,6 +161,152 @@ exports.approveCompany = async (req, res, next) => {
     );
     if (!comp) return res.status(404).json({ message: "Not found" });
     res.json({ message: "Approved", company: comp });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.rejectCompany = async (req, res, next) => {
+  try {
+    const id = req.params.id;
+    const comp = await Company.findByIdAndUpdate(
+      id,
+      { status: "rejected", allowedToRecruit: false },
+      { new: true },
+    );
+    if (!comp) return res.status(404).json({ message: "Not found" });
+    res.json({ message: "Rejected", company: comp });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.getSummary = async (req, res, next) => {
+  try {
+    const [
+      totalUsers,
+      totalCompanies,
+      pendingCompanies,
+      approvedCompanies,
+      quizAgg,
+      topAttempts,
+      scoreBuckets,
+      skillAgg,
+    ] = await Promise.all([
+      User.countDocuments(),
+      Company.countDocuments(),
+      Company.countDocuments({ status: "pending" }),
+      Company.countDocuments({ status: "approved" }),
+      QuizAttempt.aggregate([
+        { $match: { status: "submitted" } },
+        {
+          $group: {
+            _id: null,
+            totalScore: { $sum: "$obtainedMarks" },
+            totalMax: { $sum: "$totalMarks" },
+            count: { $sum: 1 },
+          },
+        },
+      ]),
+      QuizAttempt.find({ status: "submitted" })
+        .sort({ obtainedMarks: -1 })
+        .limit(5)
+        .populate("userId", "fullName email"),
+      QuizAttempt.aggregate([
+        { $match: { status: "submitted", totalMarks: { $gt: 0 } } },
+        {
+          $project: {
+            percent: {
+              $multiply: [{ $divide: ["$obtainedMarks", "$totalMarks"] }, 100],
+            },
+          },
+        },
+        {
+          $bucket: {
+            groupBy: "$percent",
+            boundaries: [0, 60, 75, 90, 101],
+            default: "other",
+            output: { count: { $sum: 1 } },
+          },
+        },
+      ]),
+      QuizAttempt.aggregate([
+        { $match: { status: "submitted" } },
+        { $unwind: "$skills" },
+        {
+          $group: {
+            _id: "$skills",
+            count: { $sum: 1 },
+          },
+        },
+        { $sort: { count: -1 } },
+        { $limit: 5 },
+      ]),
+    ]);
+
+    let averageScorePercent = 0;
+    let totalQuizAttempts = 0;
+    if (quizAgg && quizAgg.length > 0) {
+      const { totalScore, totalMax, count } = quizAgg[0];
+      totalQuizAttempts = count;
+      if (totalMax > 0) {
+        averageScorePercent = Math.round((totalScore / totalMax) * 100);
+      }
+    }
+
+    const topPerformers = topAttempts.map((a) => {
+      const percent =
+        a.totalMarks > 0
+          ? Math.round((a.obtainedMarks / a.totalMarks) * 100)
+          : 0;
+      return {
+        id: a._id,
+        userId: a.userId?._id,
+        name: a.userId?.fullName || a.userId?.email || "Unknown",
+        email: a.userId?.email,
+        quizName: a.quizName,
+        scorePercent: percent,
+      };
+    });
+
+    const scoreDistribution = {
+      "0_60": 0,
+      "60_75": 0,
+      "75_90": 0,
+      "90_100": 0,
+    };
+    scoreBuckets.forEach((b) => {
+      const key =
+        b._id < 60
+          ? "0_60"
+          : b._id < 75
+          ? "60_75"
+          : b._id < 90
+          ? "75_90"
+          : "90_100";
+      scoreDistribution[key] += b.count;
+    });
+
+    const topSkills = skillAgg.map((s) => ({
+      name: s._id,
+      count: s.count,
+    }));
+
+    res.json({
+      totals: {
+        users: totalUsers,
+        companies: totalCompanies,
+        pendingCompanies,
+        approvedCompanies,
+      },
+      quiz: {
+        totalAttempts: totalQuizAttempts,
+        averageScorePercent,
+        topPerformers,
+        scoreDistribution,
+        topSkills,
+      },
+    });
   } catch (err) {
     next(err);
   }

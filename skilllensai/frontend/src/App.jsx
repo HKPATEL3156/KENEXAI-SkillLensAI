@@ -8,6 +8,10 @@ import CompanyRegister from "./pages/CompanyRegister";
 import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminRegister from "./pages/AdminRegister";
+import AdminUsers from "./pages/AdminUsers";
+import AdminCompanies from "./pages/AdminCompanies";
+import AdminAnalytics from "./pages/AdminAnalytics";
+import AdminPending from "./pages/AdminPending";
 
 function App() {
   return (
@@ -21,6 +25,10 @@ function App() {
         <Route path="/admin/login" element={<AdminLogin />} />
         <Route path="/admin/register" element={<AdminRegister />} />
         <Route path="/admin/dashboard" element={<AdminDashboard />} />
+        <Route path="/admin/users" element={<AdminUsers />} />
+        <Route path="/admin/companies" element={<AdminCompanies />} />
+        <Route path="/admin/analytics" element={<AdminAnalytics />} />
+        <Route path="/admin/pending" element={<AdminPending />} />
 
         {/* Exam route - standalone full-screen page (no dashboard layout) */}
         <Route path="/exam" element={<QuizPage />} />
