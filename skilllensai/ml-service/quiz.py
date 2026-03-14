@@ -14,7 +14,7 @@ api_key = "AIzaSyBUPDqLunJpPKwpTazSbDO76d8_6k7Rx4M"  # set api key
 client = genai.Client(api_key=api_key)  # create client
 
 # Determine skill list: command-line, selected_skills.json, or interactive prompt
-parser = argparse.ArgumentParser(description='Generate the quiz for given skills')
+parser = argparse.ArgumentParser(description='Generate quiz for given skills')
 parser.add_argument('--skills', help='Comma-separated skills (e.g. "python, SQL")')
 args = parser.parse_args()
 
