@@ -45,18 +45,54 @@ router.post("/login", companyController.login);
 // Protected company dashboard routes
 const dashCtrl = require("../controllers/companyDashboard.controller");
 router.get("/dashboard/profile", dashCtrl.verifyCompany, dashCtrl.getProfile);
-router.patch("/dashboard/profile", dashCtrl.verifyCompany, dashCtrl.updateProfile);
+router.patch(
+  "/dashboard/profile",
+  dashCtrl.verifyCompany,
+  dashCtrl.updateProfile,
+);
 router.get("/dashboard/stats", dashCtrl.verifyCompany, dashCtrl.getStats);
-router.get("/dashboard/candidates", dashCtrl.verifyCompany, dashCtrl.getCandidates);
+router.get(
+  "/dashboard/candidates",
+  dashCtrl.verifyCompany,
+  dashCtrl.getCandidates,
+);
 router.get("/dashboard/jobs", dashCtrl.verifyCompany, dashCtrl.getJobs);
 router.post(
   "/dashboard/jobs",
   dashCtrl.verifyCompany,
   jdUpload.single("jdFile"),
-  dashCtrl.createJob
+  dashCtrl.createJob,
+);
+router.get(
+  "/dashboard/applications/:id",
+  dashCtrl.verifyCompany,
+  dashCtrl.getApplication,
 );
 router.patch("/dashboard/jobs/:id", dashCtrl.verifyCompany, dashCtrl.updateJob);
-router.delete("/dashboard/jobs/:id", dashCtrl.verifyCompany, dashCtrl.deleteJob);
-router.get("/dashboard/jobs/:id/applicants", dashCtrl.verifyCompany, dashCtrl.getJobApplicants);
+router.delete(
+  "/dashboard/jobs/:id",
+  dashCtrl.verifyCompany,
+  dashCtrl.deleteJob,
+);
+router.get(
+  "/dashboard/jobs/:id/applicants",
+  dashCtrl.verifyCompany,
+  dashCtrl.getJobApplicants,
+);
+router.post(
+  "/dashboard/applications/:id/score",
+  dashCtrl.verifyCompany,
+  dashCtrl.scoreApplication,
+);
+router.post(
+  "/dashboard/jobs/:id/scoreAll",
+  dashCtrl.verifyCompany,
+  dashCtrl.scoreAllApplications,
+);
+router.patch(
+  "/dashboard/applications/:id",
+  dashCtrl.verifyCompany,
+  dashCtrl.updateApplication,
+);
 
 module.exports = router;

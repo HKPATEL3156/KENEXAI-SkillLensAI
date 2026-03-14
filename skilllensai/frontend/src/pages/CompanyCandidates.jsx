@@ -268,7 +268,7 @@ const CompanyCandidates = () => {
                     </td>
                     <td className="py-3 pr-5 text-right">
                       <button
-                        onClick={() => setSelected(c)}
+                        onClick={() => nav(`/company/applications/${c.applicationId}`)}
                         className="rounded-full border border-slate-200 px-3 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-100 transition-colors"
                       >
                         View

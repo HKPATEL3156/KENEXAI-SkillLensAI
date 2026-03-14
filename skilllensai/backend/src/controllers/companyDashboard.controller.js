@@ -329,11 +329,32 @@ exports.getJobApplicants = async (req, res, next) => {
       Application.countDocuments({ jobRoleId: job._id }),
     ]);
     const candidates = applications.map((a) => ({
-      ...a.userId,
       _id: a.userId?._id,
       applicationId: a._id,
       quizScore: a.quizScore,
+      resumeScore: a.resumeScore || 0,
+      academic: a.academic || {},
+      consentConfirmed: !!a.consentConfirmed,
+      resumePath: a.resumePath || a.userId?.resumeFilePath || "",
+      coverLetter: a.coverLetter || "",
       applicationStatus: a.status,
+      piiSynthesized: !!a.piiSynthesized,
+      appliedAt: a.createdAt,
+      // user profile fields (pick all useful ones)
+      fullName: a.userId?.fullName || a.userId?.username || "",
+      email: a.userId?.email || "",
+      profileImage: a.userId?.profileImage || "",
+      headline: a.userId?.headline || "",
+      primaryLocation: a.userId?.primaryLocation || "",
+      mobileNumber: a.userId?.mobileNumber || "",
+      bio: a.userId?.bio || "",
+      skills: a.userId?.skills || [],
+      experience: a.userId?.experience || [],
+      education: a.userId?.education || [],
+      projects: a.userId?.projects || [],
+      achievements: a.userId?.achievements || [],
+      socialLinks: a.userId?.socialLinks || {},
+      registrationDate: a.userId?.createdAt || a.userId?.registrationDate,
     }));
     res.json({
       job: { _id: job._id, title: job.title, minScore: job.minScore },
@@ -418,6 +439,247 @@ exports.getCandidates = async (req, res, next) => {
     ]);
 
     res.json({ candidates, total, page: Number(page), limit: Number(limit) });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// POST /api/company/dashboard/applications/:id/score
+// Triggers resume skill extraction via ml-service and computes a simple resumeScore
+exports.scoreApplication = async (req, res, next) => {
+  try {
+    const appId = req.params.id;
+    const application = await Application.findById(appId).populate("jobRoleId");
+    if (!application)
+      return res.status(404).json({ message: "Application not found" });
+
+    // Verify company owns the job
+    const job = await JobRole.findById(application.jobRoleId._id);
+    if (!job || String(job.companyId) !== String(req.company.companyId))
+      return res.status(403).json({ message: "Forbidden" });
+
+    if (!application.resumePath)
+      return res
+        .status(400)
+        .json({ message: "No resume uploaded for this application" });
+
+    // Call ml-service /extract-skills
+    const mlBase =
+      process.env.ML_SERVICE_URL ||
+      process.env.ML_BASE_URL ||
+      "http://localhost:8000";
+    const axios = require("axios");
+
+    // ml-service expects a JSON with filepath relative to backend root
+    const payload = { filepath: application.resumePath };
+    let skills = [];
+    try {
+      const resp = await axios.post(`${mlBase}/extract-skills`, payload, {
+        timeout: 20000,
+      });
+      skills = (resp.data && resp.data.skills) || [];
+    } catch (e) {
+      // if ml-service fails, return partial success
+      console.warn("ml-service extract-skills failed:", e.message || e);
+      return res
+        .status(502)
+        .json({ message: "ML service error", error: e.message });
+    }
+
+    // compute resumeScore: fraction of job skills present in resume
+    const jobSkills = Array.isArray(job.skills)
+      ? job.skills.map((s) => String(s).toLowerCase().trim())
+      : [];
+    const found = skills.map((s) => String(s).toLowerCase().trim());
+    const matched = jobSkills.filter((s) => found.includes(s));
+    let score = 0;
+    if (jobSkills.length > 0)
+      score = Math.round((matched.length / jobSkills.length) * 100);
+    else
+      score = Math.round(
+        (found.length > 0 ? Math.min(found.length, 10) / 10 : 0) * 100,
+      );
+
+    application.resumeScore = score;
+    // attach resumeText if ml-service returned (not in current API) - leave unchanged
+    application.piiSynthesized = false;
+    await application.save();
+
+    res.json({
+      applicationId: application._id,
+      resumeScore: score,
+      matchedSkills: matched,
+      extractedSkills: skills,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// POST /api/company/dashboard/jobs/:id/scoreAll
+// Score all applications for a job (sequential, safe default)
+exports.scoreAllApplications = async (req, res, next) => {
+  try {
+    const jobId = req.params.id;
+    const job = await JobRole.findOne({
+      _id: jobId,
+      companyId: req.company.companyId,
+    });
+    if (!job) return res.status(404).json({ message: "Job not found" });
+
+    const applications = await Application.find({
+      jobRoleId: job._id,
+    }).populate("jobRoleId");
+    const mlBase =
+      process.env.ML_SERVICE_URL ||
+      process.env.ML_BASE_URL ||
+      "http://localhost:8000";
+    const axios = require("axios");
+
+    const results = [];
+    // Process sequentially to avoid overloading ml-service
+    for (const app of applications) {
+      if (!app.resumePath) {
+        results.push({
+          applicationId: app._id,
+          status: "skipped",
+          reason: "no_resume",
+        });
+        continue;
+      }
+      try {
+        const payload = { filepath: app.resumePath };
+        const resp = await axios.post(`${mlBase}/extract-skills`, payload, {
+          timeout: 20000,
+        });
+        const skills = (resp.data && resp.data.skills) || [];
+
+        const jobSkills = Array.isArray(job.skills)
+          ? job.skills.map((s) => String(s).toLowerCase().trim())
+          : [];
+        const found = skills.map((s) => String(s).toLowerCase().trim());
+        const matched = jobSkills.filter((s) => found.includes(s));
+        let score = 0;
+        if (jobSkills.length > 0)
+          score = Math.round((matched.length / jobSkills.length) * 100);
+        else
+          score = Math.round(
+            (found.length > 0 ? Math.min(found.length, 10) / 10 : 0) * 100,
+          );
+
+        app.resumeScore = score;
+        app.piiSynthesized = false;
+        await app.save();
+
+        results.push({
+          applicationId: app._id,
+          status: "scored",
+          resumeScore: score,
+          matched: matched,
+        });
+      } catch (e) {
+        results.push({
+          applicationId: app._id,
+          status: "error",
+          reason: e.message || String(e),
+        });
+      }
+    }
+
+    const processed = results.length;
+    const scored = results.filter((r) => r.status === "scored").length;
+    res.json({ jobId: job._id, processed, scored, results });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// PATCH /api/company/dashboard/applications/:id
+// Update application status or add company notes
+exports.updateApplication = async (req, res, next) => {
+  try {
+    const appId = req.params.id;
+    const { status, notes } = req.body;
+    const application = await Application.findById(appId).populate("jobRoleId");
+    if (!application)
+      return res.status(404).json({ message: "Application not found" });
+
+    const job = await JobRole.findById(application.jobRoleId._id);
+    if (!job || String(job.companyId) !== String(req.company.companyId))
+      return res.status(403).json({ message: "Forbidden" });
+
+    if (
+      status &&
+      ["applied", "shortlisted", "rejected", "selected"].includes(status)
+    ) {
+      application.status = status;
+    }
+    if (notes !== undefined) {
+      application.companyNotes = notes;
+    }
+    await application.save();
+    res.json({ application });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// GET /api/company/dashboard/applications/:id
+// Return a single application populated with full user profile and job info
+exports.getApplication = async (req, res, next) => {
+  try {
+    const appId = req.params.id;
+    const application = await Application.findById(appId)
+      .populate("userId")
+      .populate("jobRoleId")
+      .lean();
+    if (!application)
+      return res.status(404).json({ message: "Application not found" });
+
+    const job = await JobRole.findById(application.jobRoleId._id).lean();
+    if (!job || String(job.companyId) !== String(req.company.companyId))
+      return res.status(403).json({ message: "Forbidden" });
+
+    const user = application.userId || {};
+    const result = {
+      applicationId: application._id,
+      status: application.status,
+      quizScore: application.quizScore,
+      resumeScore: application.resumeScore || 0,
+      resumePath: application.resumePath || user.resumeFilePath || "",
+      coverLetter: application.coverLetter || "",
+      academic: application.academic || {},
+      consentConfirmed: !!application.consentConfirmed,
+      piiSynthesized: !!application.piiSynthesized,
+      companyNotes: application.companyNotes || "",
+      appliedAt: application.createdAt,
+      job: {
+        id: job._id,
+        title: job.title,
+        minScore: job.minScore,
+        skills: job.skills || [],
+        jdFilePath: job.jdFilePath || "",
+      },
+      user: {
+        id: user._id,
+        fullName: user.fullName || "",
+        email: user.email || "",
+        profileImage: user.profileImage || "",
+        headline: user.headline || "",
+        primaryLocation: user.primaryLocation || "",
+        mobileNumber: user.mobileNumber || "",
+        bio: user.bio || "",
+        skills: user.skills || [],
+        experience: user.experience || [],
+        education: user.education || [],
+        projects: user.projects || [],
+        achievements: user.achievements || [],
+        socialLinks: user.socialLinks || {},
+        registrationDate: user.createdAt || user.registrationDate,
+      },
+    };
+
+    res.json({ application: result });
   } catch (err) {
     next(err);
   }

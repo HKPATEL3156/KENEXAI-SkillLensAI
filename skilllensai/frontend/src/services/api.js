@@ -111,14 +111,37 @@ export const updateCompanyJob = (id, data) =>
 export const deleteCompanyJob = (id) =>
   companyApi.delete(`/company/dashboard/jobs/${id}`);
 
+// Score all applications for a job (company protected)
+export const scoreAllApplications = (jobId) =>
+  companyApi.post(`/company/dashboard/jobs/${jobId}/scoreAll`);
+
+// Trigger resume scoring for a specific application (company protected)
+export const scoreApplication = (applicationId) =>
+  companyApi.post(`/company/dashboard/applications/${applicationId}/score`);
+
+export const updateApplication = (applicationId, data) =>
+  companyApi.patch(`/company/dashboard/applications/${applicationId}`, data);
+
+export const getApplication = (applicationId) =>
+  companyApi.get(`/company/dashboard/applications/${applicationId}`);
+
 // Student: apply to job
 export const applyToJob = (jobId) => api.post(`/jobs/${jobId}/apply`);
 
 // Apply with optional resume file and cover letter
-export const applyToJobWithResume = (jobId, file, coverLetter) => {
+export const applyToJobWithResume = (
+  jobId,
+  file,
+  coverLetter,
+  academic,
+  consentConfirmed,
+) => {
   const form = new FormData();
   if (file) form.append("resume", file);
   if (coverLetter) form.append("coverLetter", coverLetter);
+  if (academic) form.append("academic", JSON.stringify(academic));
+  if (consentConfirmed !== undefined)
+    form.append("consentConfirmed", String(!!consentConfirmed));
   return api.post(`/jobs/${jobId}/apply`, form, {
     headers: { "Content-Type": "multipart/form-data" },
   });

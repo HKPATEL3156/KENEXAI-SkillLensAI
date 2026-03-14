@@ -115,6 +115,13 @@ router.post(
       // handle optional resume upload and cover letter
       let resumePath = undefined;
       let resumeText = "";
+      // applicant academic info and consent
+      const academic = req.body.academic
+        ? JSON.parse(req.body.academic)
+        : undefined;
+      const consentConfirmed =
+        req.body.consentConfirmed === "true" ||
+        req.body.consentConfirmed === true;
       if (req.file) {
         resumePath = path
           .join("/uploads/resumes", req.file.filename)
@@ -135,11 +142,16 @@ router.post(
       const app = await Application.create({
         jobRoleId: job._id,
         userId: req.user.id,
+        status: "applied",
         quizScore,
         quizAttemptId: latestAttempt?._id,
         resumePath,
         resumeText,
         coverLetter: req.body.coverLetter || "",
+        academic: academic || undefined,
+        consentConfirmed: !!consentConfirmed,
+        resumeScore: 0,
+        piiSynthesized: false,
       });
       res
         .status(201)

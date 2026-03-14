@@ -104,12 +104,10 @@ const Dsidebar = ({ isOpen }) => {
 const JobFinderNav = ({ isOpen }) => {
   const navigate = useNavigate();
   const handleClick = () => {
-    const role = (typeof window !== 'undefined') ? localStorage.getItem('suggestedRole') : null;
-    if (role) {
-      navigate(`/dashboard/jobs?role=${encodeURIComponent(role)}`);
-    } else {
-      navigate('/dashboard/jobs');
-    }
+    // Always open Jobs list unfiltered from the sidebar menu.
+    // Suggested-role based filtering should only happen when explicitly requested
+    // (e.g. from career recommendation buttons), not when opening the menu.
+    navigate('/dashboard/jobs');
   };
 
   return (

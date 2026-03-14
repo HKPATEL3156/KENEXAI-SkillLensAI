@@ -16,7 +16,7 @@ const applicationSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["applied", "shortlisted", "rejected"],
+      enum: ["applied", "shortlisted", "rejected", "selected"],
       default: "applied",
     },
     quizScore: { type: Number },
@@ -27,6 +27,22 @@ const applicationSchema = new mongoose.Schema(
     resumeText: { type: String, default: "" },
     // optional cover letter provided during apply
     coverLetter: { type: String, default: "" },
+    // Resume screening score from ML service (0-100)
+    resumeScore: { type: Number, default: 0 },
+    // Applicant academic information (CGPA / percentage / marks etc.)
+    academic: {
+      degree: { type: String },
+      institution: { type: String },
+      cgpa: { type: Number },
+      percentage: { type: Number },
+      yearOfPassing: { type: Number },
+    },
+    // Applicant-provided confirmation checkbox (e.g., confirm fields are correct)
+    consentConfirmed: { type: Boolean, default: false },
+    // Flag indicating whether missing PII was synthesized to complete the profile
+    piiSynthesized: { type: Boolean, default: false },
+    // Optional notes added by company reviewers
+    companyNotes: { type: String, default: "" },
   },
   { timestamps: true },
 );

@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import api from "../services/api";
+import api, { getCompanyJobs, getCompanyCandidates, scoreApplication, createCompanyJob, updateApplication, scoreAllApplications } from "../services/api";
 
 export default function CompanyDashboard() {
   const [currentPage, setCurrentPage] = useState("candidates");
   const [companyInfo, setCompanyInfo] = useState({ companyName: "", email: "" });
   const [candidates, setCandidates] = useState([]);
+  const [currentJobId, setCurrentJobId] = useState(null);
   const [jobs, setJobs] = useState([
     { id: 1, title: "Backend Developer", dept: "Engineering", minScore: 65, skills: ["Python", "Django", "SQL", "REST APIs"], applicants: 18, active: true, posted: "2026-03-10" },
     { id: 2, title: "QA Engineer", dept: "Engineering", minScore: 60, skills: ["Selenium", "JIRA", "Postman"], applicants: 9, active: true, posted: "2026-03-08" },
@@ -39,10 +40,24 @@ export default function CompanyDashboard() {
       } catch (e) {
         console.error("Token decode error:", e);
       }
-      api.get("/api/admin/users", { headers: { Authorization: `Bearer ${token}` } })
-        .then(res => {
-          if (res.data && res.data.length > 0) setCandidates(res.data);
-          else setCandidates(fallbackCandidates);
+      // load company jobs and applicants (prefer job-specific applicants)
+      getCompanyJobs()
+        .then((res) => {
+          const jobsData = (res.data && res.data.jobs) || [];
+          if (jobsData.length > 0) {
+            setJobs(jobsData.map(j => ({ id: j._id || j.id, title: j.title, dept: j.dept || '', minScore: j.minScore || 0, skills: j.skills || [], applicants: j.applicants || 0, active: j.status === 'active', posted: j.createdAt ? j.createdAt.split('T')[0] : '' })));
+            const firstJobId = jobsData[0]._id || jobsData[0].id;
+            api.get(`/company/dashboard/jobs/${firstJobId}/applicants`, { headers: { Authorization: `Bearer ${token}` } })
+              .then(r => {
+                if (r.data && r.data.candidates) setCandidates(r.data.candidates);
+                else setCandidates(fallbackCandidates);
+              })
+              .catch(() => setCandidates(fallbackCandidates));
+          } else {
+            getCompanyCandidates()
+              .then(r => setCandidates((r.data && r.data.candidates) || fallbackCandidates))
+              .catch(() => setCandidates(fallbackCandidates));
+          }
         })
         .catch(() => setCandidates(fallbackCandidates));
     } else {
@@ -79,23 +94,88 @@ export default function CompanyDashboard() {
 
   const handlePostRole = (e) => {
     e.preventDefault();
-    const job = {
-      id: Date.now(),
-      title: newJob.title,
-      dept: newJob.dept,
-      minScore: Number(newJob.minScore),
-      skills: newJob.skills.split(",").map(s => s.trim()),
-      applicants: 0,
-      active: true,
-      posted: new Date().toISOString().split("T")[0]
-    };
-    setJobs([...jobs, job]);
-    setShowPostRole(false);
-    showToast("Role Posted ✓");
+    // Build FormData for multipart upload (supports jdFile PDF)
+    const form = new FormData();
+    form.append("title", newJob.title);
+    form.append("minScore", String(newJob.minScore || 0));
+    form.append("minExperienceYears", String(newJob.minExperienceYears || 0));
+    form.append("employmentType", newJob.employmentType || "full-time");
+    form.append("location", newJob.location || "");
+    if (newJob.skills) form.append("skills", newJob.skills);
+    if (newJob.jdFile) form.append("jdFile", newJob.jdFile);
+
+    showToast("Posting role...");
+    createCompanyJob(form)
+      .then((res) => {
+        const created = res.data && res.data.job ? res.data.job : null;
+        if (created) {
+          // refresh jobs list
+          getCompanyJobs().then(r => {
+            const jobsData = (r.data && r.data.jobs) || [];
+            setJobs(jobsData.map(j => ({ id: j._id || j.id, title: j.title, dept: j.dept || '', minScore: j.minScore || 0, skills: j.skills || [], applicants: j.applicants || 0, active: j.status === 'active', posted: j.createdAt ? j.createdAt.split('T')[0] : '' })));
+          }).catch(() => {});
+          setShowPostRole(false);
+          setNewJob({ title: "", dept: "", minScore: 60, skills: "", minExperienceYears: 0, employmentType: "full-time", location: "", jdFile: null });
+          showToast("Role Posted ✓");
+        } else {
+          showToast("Failed to post role");
+        }
+      })
+      .catch((err) => {
+        console.error(err);
+        showToast(err?.response?.data?.message || "Failed to post role");
+      });
+  };
+
+  const fetchJobApplicants = (jobId) => {
+    const token = localStorage.getItem("companyToken");
+    if (!token) return;
+    showToast("Loading applicants...");
+    api.get(`/company/dashboard/jobs/${jobId}/applicants`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => {
+        if (r.data && r.data.candidates) setCandidates(r.data.candidates);
+        else setCandidates(fallbackCandidates);
+        setCurrentJobId(jobId);
+        setCurrentPage('candidates');
+      })
+      .catch(() => setCandidates(fallbackCandidates));
   };
 
   const handleShortlist = () => {
     showToast("Shortlisted ✓");
+  };
+
+  const handleScoreOne = async (applicationId) => {
+    try {
+      showToast('Scoring...');
+      const resp = await scoreApplication(applicationId);
+      if (resp && resp.data) {
+        const { resumeScore } = resp.data;
+        setCandidates(prev => prev.map(c => (c.applicationId === applicationId ? { ...c, resumeScore } : c)));
+        // if selectedCandidate matches, update it too
+        setSelectedCandidate(prev => (prev && prev.applicationId === applicationId ? { ...prev, resumeScore } : prev));
+        showToast('Scored ✓');
+      }
+    } catch (e) {
+      showToast('Scoring failed');
+    }
+  };
+
+  const handleScoreAll = async () => {
+    if (!currentJobId) return showToast('Select a job first');
+    try {
+      showToast('Batch scoring started...');
+      const resp = await scoreAllApplications(currentJobId);
+      if (resp && resp.data) {
+        // refetch applicants to get updated resumeScore
+        fetchJobApplicants(currentJobId);
+        showToast(`Batch scoring completed: ${resp.data.scored}/${resp.data.processed}`);
+      } else {
+        showToast('Batch scoring failed');
+      }
+    } catch (e) {
+      showToast(e?.response?.data?.message || 'Batch scoring failed');
+    }
   };
 
   const renderAnalytics = () => {
@@ -196,7 +276,7 @@ export default function CompanyDashboard() {
         {currentPage === 'jobs' && (
           <div className="grid grid-cols-2 gap-4">
             {jobs.map(job => (
-              <div key={job.id} className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
+              <div key={job.id} onClick={() => fetchJobApplicants(job.id)} className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition">
                 <div className="flex justify-between items-start mb-2">
                   <h3 className="font-bold text-lg">{job.title}</h3>
                   <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-md">{job.dept}</span>
@@ -215,48 +295,116 @@ export default function CompanyDashboard() {
 
         {currentPage === 'candidates' && (
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-            <div className="flex gap-4 mb-4">
-              <input type="text" placeholder="Search candidates..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="border p-2 rounded-lg flex-1 outline-none focus:ring-2 focus:ring-blue-100 text-sm" />
-              <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)} className="border p-2 rounded-lg outline-none text-sm">
-                <option value="All">All Roles</option>
-                {[...new Set(candidates.map(c => c._role))].map(r => <option key={r} value={r}>{r}</option>)}
-              </select>
-              <select value={sortOrder} onChange={e => setSortOrder(e.target.value)} className="border p-2 rounded-lg outline-none text-sm">
-                <option value="desc">Score: High to Low</option>
-                <option value="asc">Score: Low to High</option>
-              </select>
-            </div>
-            
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b text-gray-500 text-sm">
-                  <th className="py-3 px-4 font-medium">Candidate</th>
-                  <th className="py-3 px-4 font-medium">Role</th>
-                  <th className="py-3 px-4 font-medium text-center">Score</th>
-                  <th className="py-3 px-4 font-medium">Skills</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredCandidates.map(c => (
-                  <tr key={c._id} onClick={() => setSelectedCandidate(c)} className="border-b hover:bg-gray-50 cursor-pointer transition">
-                    <td className="py-3 px-4">
-                      <p className="font-semibold text-gray-800">{c.fullName}</p>
-                      <p className="text-xs text-gray-500">{c.primaryLocation}</p>
-                    </td>
-                    <td className="py-3 px-4 text-sm text-gray-600">{c._role}</td>
-                    <td className="py-3 px-4 text-center text-sm font-bold">
-                      <span className={`${getScoreColor(c._quizPct)}`}>{c._quizPct}%</span>
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="flex gap-2 flex-wrap">
-                        {c.skills?.slice(0,3).map((s,i) => <span key={i} className="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-md">{s}</span>)}
-                        {(c.skills?.length > 3) && <span className="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-md">+{c.skills.length - 3}</span>}
+            <div className="flex items-start gap-6 mb-4">
+              <div className="flex-1">
+                <div className="flex gap-4 mb-4">
+                  <input type="text" placeholder="Search candidates..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="border p-2 rounded-lg flex-1 outline-none focus:ring-2 focus:ring-blue-100 text-sm" />
+                  <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)} className="border p-2 rounded-lg outline-none text-sm">
+                    <option value="All">All Roles</option>
+                    {[...new Set(candidates.map(c => c._role))].map(r => <option key={r} value={r}>{r}</option>)}
+                  </select>
+                  <select value={sortOrder} onChange={e => setSortOrder(e.target.value)} className="border p-2 rounded-lg outline-none text-sm">
+                    <option value="desc">Score: High to Low</option>
+                    <option value="asc">Score: Low to High</option>
+                  </select>
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="col-span-1 bg-white rounded-lg border p-3 h-[520px] overflow-y-auto">
+                    <h4 className="font-semibold mb-3">Applicants</h4>
+                    <div className="divide-y">
+                      {filteredCandidates.map((c, i) => (
+                        <div key={c._id} onClick={() => { setSelectedCandidate(c); }} className={`py-3 px-2 cursor-pointer ${selectedCandidate && selectedCandidate.applicationId === c.applicationId ? 'bg-blue-50 rounded-md' : 'hover:bg-gray-50'}`}>
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <p className="font-semibold text-sm">{c.fullName}</p>
+                              <p className="text-xs text-gray-500">{c.primaryLocation}</p>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-sm font-bold">{(c.resumeScore||0)}%</div>
+                              <div className="text-xs text-gray-400">{c.applicationStatus || 'applied'}</div>
+                            </div>
+                          </div>
+                          <div className="mt-2 text-xs text-gray-600">
+                            {c.skills?.slice(0,4).map(s => <span key={s} className="text-xs bg-gray-100 px-2 py-0.5 rounded-md mr-1">{s}</span>)}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="col-span-2 bg-white rounded-lg border p-4 h-[520px] overflow-y-auto">
+                    {selectedCandidate ? (
+                      <div>
+                        <div className="flex justify-between items-start mb-4">
+                          <div>
+                            <h3 className="text-xl font-bold">{selectedCandidate.fullName}</h3>
+                            <p className="text-sm text-gray-600">{selectedCandidate.headline} · {selectedCandidate.primaryLocation}</p>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-sm text-gray-500">Applied: {new Date(selectedCandidate.appliedAt).toLocaleDateString()}</div>
+                            <div className="text-2xl font-bold mt-2">{(selectedCandidate.resumeScore||0)}%</div>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4 mb-4">
+                          <div>
+                            <h4 className="font-semibold mb-2">Contact</h4>
+                            <p className="text-sm">Email: {selectedCandidate.email}</p>
+                            <p className="text-sm">Phone: {selectedCandidate.mobileNumber || '-'}</p>
+                            <p className="text-sm">Joined: {selectedCandidate.registrationDate ? new Date(selectedCandidate.registrationDate).toLocaleDateString() : ''}</p>
+                          </div>
+                          <div>
+                            <h4 className="font-semibold mb-2">Social</h4>
+                            <p className="text-sm">LinkedIn: {selectedCandidate.socialLinks?.linkedin || '-'}</p>
+                            <p className="text-sm">GitHub: {selectedCandidate.socialLinks?.github || '-'}</p>
+                            <p className="text-sm">Portfolio: {selectedCandidate.socialLinks?.portfolio || '-'}</p>
+                          </div>
+                        </div>
+
+                        <div className="mb-4">
+                          <h4 className="font-semibold mb-2">Education</h4>
+                          {selectedCandidate.education?.length ? selectedCandidate.education.map((e, idx) => (
+                            <div key={idx} className="mb-2 text-sm">
+                              <div className="font-medium">{e.level} • {e.institution}</div>
+                              <div className="text-gray-500">CGPA: {e.cgpa || '-'} • {e.startYear || ''} - {e.endYear || ''}</div>
+                            </div>
+                          )) : <div className="text-sm text-gray-500">No education data</div>}
+                        </div>
+
+                        <div className="mb-4">
+                          <h4 className="font-semibold mb-2">Experience</h4>
+                          {selectedCandidate.experience?.length ? selectedCandidate.experience.map((exp, idx) => (
+                            <div key={idx} className="mb-2 text-sm">
+                              <div className="font-medium">{exp.role} @ {exp.company}</div>
+                              <div className="text-gray-500">{exp.startDate ? (new Date(exp.startDate).getFullYear()) : ''} - {exp.currentlyWorking ? 'Present' : (exp.endDate ? new Date(exp.endDate).getFullYear() : '')}</div>
+                              <div className="text-gray-500 text-sm">{exp.description}</div>
+                            </div>
+                          )) : <div className="text-sm text-gray-500">No experience listed</div>}
+                        </div>
+
+                        <div className="mb-4">
+                          <h4 className="font-semibold mb-2">Projects</h4>
+                          {selectedCandidate.projects?.length ? selectedCandidate.projects.map((p, idx) => (
+                            <div key={idx} className="mb-2 text-sm border p-3 rounded-md">
+                              <div className="font-medium">{p.title}</div>
+                              <div className="text-gray-500">{p.description}</div>
+                              <div className="text-xs text-gray-400">Stack: {p.techStack?.join(', ')}</div>
+                            </div>
+                          )) : <div className="text-sm text-gray-500">No projects</div>}
+                        </div>
+
+                        <div className="flex gap-3 mt-4">
+                          <button onClick={() => { if (selectedCandidate.resumePath) window.open(selectedCandidate.resumePath, '_blank'); else showToast('No resume'); }} className="bg-blue-600 text-white px-4 py-2 rounded-md">View Resume</button>
+                          <button onClick={async () => { try { await handleScoreOne(selectedCandidate.applicationId); } catch(e){}}} className="bg-green-600 text-white px-4 py-2 rounded-md">Score Resume</button>
+                          <button onClick={async () => { try { await updateApplication(selectedCandidate.applicationId, { status: 'selected' }); setSelectedCandidate(prev => ({ ...prev, applicationStatus: 'selected' })); showToast('Marked selected'); } catch (e) { showToast('Update failed'); } }} className="bg-indigo-600 text-white px-4 py-2 rounded-md">Mark Selected</button>
+                        </div>
                       </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    ) : (
+                      <div className="text-center text-gray-500 mt-20">Select an applicant to view details</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -285,6 +433,9 @@ export default function CompanyDashboard() {
                 <div>
                    <p className="text-sm text-gray-500 font-medium">Platform Score</p>
                    <p className="text-lg font-semibold">{selectedCandidate._role}</p>
+                   {selectedCandidate?.resumeScore !== undefined && (
+                     <p className="text-sm text-gray-600 mt-1">Resume Score: <span className={`font-semibold ${getScoreColor(selectedCandidate.resumeScore || 0)}`}>{selectedCandidate.resumeScore}%</span></p>
+                   )}
                 </div>
               </div>
 
@@ -327,9 +478,44 @@ export default function CompanyDashboard() {
               <button onClick={handleShortlist} className="bg-blue-600 text-white flex-1 py-3 rounded-xl font-semibold text-sm hover:bg-blue-700 transition">
                 Shortlist
               </button>
-              <button onClick={() => window.open('#', '_blank')} className="bg-blue-50 text-blue-700 border border-blue-200 px-5 py-3 rounded-xl font-semibold text-sm hover:bg-blue-100 transition">
+              {selectedCandidate?.applicationId && (
+                <button onClick={async () => {
+                  try {
+                    await updateApplication(selectedCandidate.applicationId, { status: 'selected' });
+                    setSelectedCandidate(prev => ({ ...prev, applicationStatus: 'selected' }));
+                    showToast('Marked selected');
+                  } catch (e) {
+                    showToast('Update failed');
+                  }
+                }} className="bg-indigo-600 text-white px-4 py-3 rounded-xl font-semibold text-sm hover:bg-indigo-700 transition">Mark Selected</button>
+              )}
+              <button onClick={() => {
+                  const rp = selectedCandidate?.resumePath || selectedCandidate?.resumePath;
+                  if (rp) window.open(rp, '_blank');
+                  else showToast('No resume available');
+                }} className="bg-blue-50 text-blue-700 border border-blue-200 px-5 py-3 rounded-xl font-semibold text-sm hover:bg-blue-100 transition">
                 Download Resume
               </button>
+              {selectedCandidate?.applicationId && (
+                <button onClick={async () => {
+                  try {
+                    showToast('Scoring resume...');
+                    const resp = await scoreApplication(selectedCandidate.applicationId);
+                    if (resp && resp.data) {
+                      const { resumeScore, matchedSkills } = resp.data;
+                      setSelectedCandidate(prev => ({ ...prev, resumeScore, matchedSkills }));
+                      showToast('Resume scored ✓');
+                    } else {
+                      showToast('Scoring failed');
+                    }
+                  } catch (e) {
+                    const msg = e?.response?.data?.message || e?.message || 'Scoring failed';
+                    showToast(msg);
+                  }
+                }} className="bg-green-600 text-white px-4 py-3 rounded-xl font-semibold text-sm hover:bg-green-700 transition">
+                  Score Resume
+                </button>
+              )}
             </div>
           </div>
         </>
@@ -343,8 +529,25 @@ export default function CompanyDashboard() {
             <form onSubmit={handlePostRole} className="space-y-4">
               <input required type="text" placeholder="Title (e.g. Frontend Dev)" value={newJob.title} onChange={e => setNewJob({...newJob, title: e.target.value})} className="w-full border p-2 rounded-lg text-sm" />
               <input required type="text" placeholder="Department" value={newJob.dept} onChange={e => setNewJob({...newJob, dept: e.target.value})} className="w-full border p-2 rounded-lg text-sm" />
-              <input required type="number" placeholder="Min Score (%)" value={newJob.minScore} onChange={e => setNewJob({...newJob, minScore: e.target.value})} className="w-full border p-2 rounded-lg text-sm" />
+              <div className="grid grid-cols-2 gap-2">
+                <input required type="number" placeholder="Min Score (%)" value={newJob.minScore} onChange={e => setNewJob({...newJob, minScore: e.target.value})} className="w-full border p-2 rounded-lg text-sm" />
+                <input type="number" placeholder="Min Experience (yrs)" value={newJob.minExperienceYears || 0} onChange={e => setNewJob({...newJob, minExperienceYears: e.target.value})} className="w-full border p-2 rounded-lg text-sm" />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <select value={newJob.employmentType || 'full-time'} onChange={e => setNewJob({...newJob, employmentType: e.target.value})} className="w-full border p-2 rounded-lg text-sm">
+                  <option value="full-time">Full Time</option>
+                  <option value="part-time">Part Time</option>
+                  <option value="internship">Internship</option>
+                  <option value="contract">Contract</option>
+                  <option value="other">Other</option>
+                </select>
+                <input type="text" placeholder="Location (city, state)" value={newJob.location || ''} onChange={e => setNewJob({...newJob, location: e.target.value})} className="w-full border p-2 rounded-lg text-sm" />
+              </div>
               <input required type="text" placeholder="Skills (comma separated)" value={newJob.skills} onChange={e => setNewJob({...newJob, skills: e.target.value})} className="w-full border p-2 rounded-lg text-sm" />
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">JD PDF</label>
+                <input type="file" accept="application/pdf" onChange={e => setNewJob({...newJob, jdFile: e.target.files[0]})} className="w-full" />
+              </div>
               <div className="flex gap-2 mt-4">
                 <button type="button" onClick={() => setShowPostRole(false)} className="flex-1 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg">Cancel</button>
                 <button type="submit" className="flex-1 py-2 text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 rounded-lg">Post Job</button>
