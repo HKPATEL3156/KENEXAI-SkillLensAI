@@ -91,5 +91,22 @@ export const getCompanyProfile = () => companyApi.get("/company/dashboard/profil
 export const updateCompanyProfile = (data) => companyApi.patch("/company/dashboard/profile", data);
 export const getCompanyStats = () => companyApi.get("/company/dashboard/stats");
 export const getCompanyCandidates = (params) => companyApi.get("/company/dashboard/candidates", { params });
+export const getCompanyJobs = () => companyApi.get("/company/dashboard/jobs");
+export const createCompanyJob = (data) => {
+  const form = new FormData();
+  Object.entries(data || {}).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      form.append(key, value);
+    }
+  });
+  return companyApi.post("/company/dashboard/jobs", form, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+};
+export const updateCompanyJob = (id, data) => companyApi.patch(`/company/dashboard/jobs/${id}`, data);
+export const deleteCompanyJob = (id) => companyApi.delete(`/company/dashboard/jobs/${id}`);
+
+// Student: apply to job
+export const applyToJob = (jobId) => api.post(`/jobs/${jobId}/apply`);
 
 export default api;

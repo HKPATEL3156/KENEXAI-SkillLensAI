@@ -18,11 +18,13 @@ app.use(express.json());
 const resumesDir = path.join(__dirname, "uploads/resumes");
 const profilePhotosDir = path.join(__dirname, "uploads/profile-photos");
 const companyDocsDir = path.join(__dirname, "uploads/company-docs");
+const jobJdsDir = path.join(__dirname, "uploads/job-jds");
 if (!fs.existsSync(resumesDir)) fs.mkdirSync(resumesDir, { recursive: true });
 if (!fs.existsSync(profilePhotosDir))
   fs.mkdirSync(profilePhotosDir, { recursive: true });
 if (!fs.existsSync(companyDocsDir))
   fs.mkdirSync(companyDocsDir, { recursive: true });
+if (!fs.existsSync(jobJdsDir)) fs.mkdirSync(jobJdsDir, { recursive: true });
 
 // Serve uploaded files
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
@@ -35,6 +37,7 @@ const activityRoutes = require("./src/routes/activity.routes");
 const quizRoutes = require("./src/routes/quizRoutes");
 const companyRoutes = require("./src/routes/company.routes");
 const adminRoutes = require("./src/routes/admin.routes");
+const jobsRoutes = require("./src/routes/jobs.routes");
 
 // Use routes
 app.use("/api/career", careerRoutes);
@@ -44,6 +47,7 @@ app.use("/api/activity", activityRoutes);
 app.use("/api/quiz", quizRoutes);
 app.use("/api/company", companyRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/jobs", jobsRoutes);
 
 // Centralized error handler
 const errorHandler = require("./src/middleware/errorHandler");

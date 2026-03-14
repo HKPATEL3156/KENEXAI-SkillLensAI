@@ -4,7 +4,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 const navItems = [
   {
     to: "/company/dashboard",
-    label: "Overview",
+    label: "Dashboard",
     key: "dashboard",
     icon: (
       <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -14,8 +14,18 @@ const navItems = [
     ),
   },
   {
+    to: "/company/job-roles",
+    label: "Job Roles",
+    key: "job-roles",
+    icon: (
+      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+      </svg>
+    ),
+  },
+  {
     to: "/company/candidates",
-    label: "Candidates",
+    label: "Matched Candidates",
     key: "candidates",
     icon: (
       <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -25,12 +35,23 @@ const navItems = [
     ),
   },
   {
-    to: "/company/profile",
-    label: "Company Profile",
-    key: "profile",
+    to: "/company/analytics",
+    label: "Analytics",
+    key: "analytics",
     icon: (
       <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+        <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/>
+        <line x1="6" y1="20" x2="6" y2="14"/>
+      </svg>
+    ),
+  },
+  {
+    to: "/company/settings",
+    label: "Settings",
+    key: "settings",
+    icon: (
+      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
       </svg>
     ),
   },
@@ -40,7 +61,8 @@ const CompanyShell = ({ children, active }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const current = active || location.pathname.split("/")[2] || "dashboard";
+  const pathPart = location.pathname.split("/")[2] || "dashboard";
+  const current = active || pathPart;
 
   const companyInfo = (() => {
     try { return JSON.parse(localStorage.getItem("companyInfo") || "{}"); }
@@ -58,50 +80,52 @@ const CompanyShell = ({ children, active }) => {
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden">
-      {/* Sidebar */}
+      {/* Sidebar - light theme to match COMPANY PORTAL design */}
       <aside
-        className={`flex flex-col bg-slate-900 text-white transition-all duration-300 shrink-0 ${
+        className={`flex flex-col bg-white border-r border-slate-200 transition-all duration-300 shrink-0 ${
           sidebarOpen ? "w-60" : "w-16"
         }`}
       >
-        {/* Logo */}
-        <div className="flex items-center gap-3 px-4 py-5 border-b border-slate-700">
-          <div className="flex-shrink-0 bg-gradient-to-br from-indigo-500 to-purple-600 p-2 rounded-xl">
+        {/* Header: SkillLens AI COMPANY PORTAL */}
+        <div className="flex items-center gap-3 px-4 py-5 border-b border-slate-100">
+          <div className="flex-shrink-0 bg-gradient-to-br from-indigo-600 to-blue-700 p-2 rounded-xl">
             <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 2a5 5 0 1 1 0 10A5 5 0 0 1 12 2zm0 12c5.33 0 8 2.67 8 4v2H4v-2c0-1.33 2.67-4 8-4z"/>
             </svg>
           </div>
           {sidebarOpen && (
-            <span className="text-white font-bold text-base tracking-wide whitespace-nowrap">
-              SkillLens <span className="text-yellow-400">AI</span>
-            </span>
+            <div>
+              <span className="text-slate-900 font-bold text-sm tracking-wide">
+                SkillLens <span className="text-indigo-600">AI</span>
+              </span>
+              <div className="text-[10px] text-slate-500 font-medium uppercase tracking-wider">
+                Company Portal
+              </div>
+            </div>
           )}
         </div>
 
-        {/* Company badge */}
+        {/* Company badge - light blue with Verified Partner */}
         {sidebarOpen && (
-          <div className="mx-3 mt-4 rounded-xl bg-slate-800 px-3 py-3">
+          <div className="mx-3 mt-4 rounded-xl bg-indigo-50 border border-indigo-100 px-3 py-3">
             <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-xs font-bold">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-xs font-bold text-white">
                 {initials}
               </div>
-              <div className="min-w-0">
-                <div className="truncate text-xs font-semibold text-white">
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-semibold text-slate-900">
                   {companyInfo.companyName || "Company"}
                 </div>
-                <div className="truncate text-[10px] text-slate-400">
-                  {companyInfo.email || ""}
+                <div className="inline-flex items-center gap-1 mt-0.5 text-[10px] text-emerald-600 font-medium">
+                  <span>✓</span> Verified Partner
                 </div>
               </div>
-            </div>
-            <div className="mt-2 inline-flex items-center rounded-full bg-emerald-900/60 px-2 py-0.5 text-[10px] text-emerald-400">
-              ✓ Approved
             </div>
           </div>
         )}
 
         {/* Nav */}
-        <nav className="mt-4 flex-1 space-y-1 px-2">
+        <nav className="mt-4 flex-1 space-y-0.5 px-2">
           {navItems.map((item) => {
             const isActive = current === item.key;
             return (
@@ -110,8 +134,8 @@ const CompanyShell = ({ children, active }) => {
                 to={item.to}
                 className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors ${
                   isActive
-                    ? "bg-indigo-600 text-white"
-                    : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                    ? "bg-indigo-50 text-indigo-700 font-semibold"
+                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
                 }`}
               >
                 <span className="shrink-0">{item.icon}</span>
@@ -122,10 +146,10 @@ const CompanyShell = ({ children, active }) => {
         </nav>
 
         {/* Logout */}
-        <div className="border-t border-slate-700 p-2 mb-2">
+        <div className="border-t border-slate-100 p-2 mb-2">
           <button
             onClick={handleLogout}
-            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors"
           >
             <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
@@ -141,7 +165,7 @@ const CompanyShell = ({ children, active }) => {
         <header className="flex h-14 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-6 shadow-sm">
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="text-slate-500 hover:text-slate-900 transition-colors"
+            className="text-slate-500 hover:text-slate-900 transition-colors p-1"
             aria-label="Toggle sidebar"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -149,17 +173,17 @@ const CompanyShell = ({ children, active }) => {
             </svg>
           </button>
           <div className="flex items-center gap-3">
-            <span className="text-sm text-slate-500 hidden sm:block">
-              {companyInfo.companyName || "Company Dashboard"}
+            <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700">
+              Verified
             </span>
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-600 text-xs font-bold text-white">
-              {initials}
+              HR
             </div>
           </div>
         </header>
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
+        <main className="flex-1 overflow-y-auto p-6 bg-slate-50">{children}</main>
       </div>
     </div>
   );

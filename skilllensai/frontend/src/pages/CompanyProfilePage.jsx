@@ -89,7 +89,7 @@ const CompanyProfilePage = () => {
     .split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
 
   return (
-    <CompanyShell active="profile">
+    <CompanyShell active="settings">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Company Profile</h1>

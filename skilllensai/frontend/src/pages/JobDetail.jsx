@@ -1,11 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import api from '../services/api';
+import { useParams, useNavigate } from 'react-router-dom';
+import api, { applyToJob } from '../services/api';
 
 const JobDetail = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [job, setJob] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [applying, setApplying] = useState(false);
+  const [applied, setApplied] = useState(false);
+  const [err, setErr] = useState('');
 
   useEffect(() => {
     const load = async () => {
@@ -20,6 +24,24 @@ const JobDetail = () => {
     load();
   }, [id]);
 
+  const handleApply = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      navigate('/login');
+      return;
+    }
+    setApplying(true);
+    setErr('');
+    try {
+      await applyToJob(id);
+      setApplied(true);
+    } catch (e) {
+      setErr(e?.response?.data?.message || e.message || 'Apply failed');
+    } finally {
+      setApplying(false);
+    }
+  };
+
   if (loading) return <div className="p-6">Loading...</div>;
   if (!job) return <div className="p-6">Job not found</div>;
 
@@ -29,20 +51,35 @@ const JobDetail = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold">{job.title}</h1>
-            <div className="text-sm text-gray-600">{job.companyName} • {job.location || 'Remote'}</div>
+            <div className="text-sm text-gray-600">
+              {job.companyName} • Min exp: {job.minExperienceYears ?? 0} yrs
+            </div>
           </div>
           <div className="text-sm text-gray-500">Posted: {job.createdAt ? new Date(job.createdAt).toLocaleDateString() : ''}</div>
         </div>
 
-        <div className="mt-4 text-gray-700" dangerouslySetInnerHTML={{ __html: job.description }} />
+        <div className="mt-4 text-gray-700 whitespace-pre-line">
+          {job.description || ''}
+        </div>
 
         <div className="mt-4">
           <div className="font-semibold mb-1">Skills</div>
           <div className="flex gap-2 flex-wrap">{(job.skills||[]).map((s,i)=>(<span key={i} className="text-xs bg-gray-100 px-2 py-1 rounded">{s}</span>))}</div>
         </div>
 
-        <div className="mt-4 flex gap-2">
-          {job.applyUrl ? (<a className="px-4 py-2 bg-green-600 text-white rounded" href={job.applyUrl} target="_blank" rel="noreferrer">Apply</a>) : (<button className="px-4 py-2 bg-gray-200 rounded">Contact</button>)}
+        <div className="mt-4 flex gap-2 items-center">
+          {applied ? (
+            <span className="px-4 py-2 bg-green-100 text-green-700 rounded font-medium">Application submitted ✓</span>
+          ) : (
+            <button
+              onClick={handleApply}
+              disabled={applying}
+              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-60"
+            >
+              {applying ? 'Applying...' : 'Apply for this role'}
+            </button>
+          )}
+          {err && <span className="text-sm text-red-600">{err}</span>}
         </div>
       </div>
     </div>

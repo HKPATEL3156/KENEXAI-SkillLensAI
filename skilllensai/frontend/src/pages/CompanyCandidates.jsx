@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import CompanyShell from "../components/CompanyShell";
 import { getCompanyCandidates } from "../services/api";
 
@@ -54,6 +54,12 @@ const CandidateModal = ({ candidate, onClose }) => {
               <span>{candidate.primaryLocation}</span>
             </div>
           )}
+          {candidate.quizScore != null && (
+            <div className="flex items-center justify-between">
+              <span className="font-medium text-slate-800">Quiz Score</span>
+              <span className="font-semibold text-indigo-600">{candidate.quizScore}%</span>
+            </div>
+          )}
           <div className="flex items-center justify-between">
             <span className="font-medium text-slate-800">Joined</span>
             <span>{candidate.createdAt ? new Date(candidate.createdAt).toLocaleDateString() : "—"}</span>
@@ -84,8 +90,11 @@ const CandidateModal = ({ candidate, onClose }) => {
 };
 
 const CompanyCandidates = () => {
+  const [searchParams] = useSearchParams();
+  const jobId = searchParams.get("jobId");
   const [candidates, setCandidates] = useState([]);
   const [total, setTotal] = useState(0);
+  const [jobTitle, setJobTitle] = useState("");
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -94,13 +103,16 @@ const CompanyCandidates = () => {
   const nav = useNavigate();
   const LIMIT = 15;
 
-  const fetchCandidates = useCallback(async (q, p) => {
+  const fetchCandidates = useCallback(async (q, p, jid) => {
     setLoading(true);
     setErr("");
     try {
-      const res = await getCompanyCandidates({ q, page: p, limit: LIMIT });
+      const params = { q, page: p, limit: LIMIT };
+      if (jid) params.jobId = jid;
+      const res = await getCompanyCandidates(params);
       setCandidates(res.data.candidates || []);
       setTotal(res.data.total || 0);
+      if (res.data.jobTitle) setJobTitle(res.data.jobTitle);
     } catch (e) {
       if (e?.response?.status === 401 || e?.response?.status === 403) {
         nav("/company/login");
@@ -115,13 +127,13 @@ const CompanyCandidates = () => {
   useEffect(() => {
     const token = localStorage.getItem("companyToken");
     if (!token) { nav("/company/login"); return; }
-    fetchCandidates(query, page);
-  }, [page]);
+    fetchCandidates(query, page, jobId);
+  }, [page, jobId]);
 
   const handleSearch = (e) => {
     e.preventDefault();
     setPage(1);
-    fetchCandidates(query, 1);
+    fetchCandidates(query, 1, jobId);
   };
 
   const totalPages = Math.ceil(total / LIMIT);
@@ -130,12 +142,26 @@ const CompanyCandidates = () => {
     <CompanyShell active="candidates">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Candidates</h1>
+          <h1 className="text-2xl font-bold text-slate-900">
+            {jobTitle ? `Applicants: ${jobTitle}` : "Matched Candidates"}
+          </h1>
           <p className="mt-1 text-sm text-slate-500">
-            Browse skill-verified candidates registered on SkillLens AI.
+            {jobTitle
+              ? `Candidates who applied for this role`
+              : "Browse skill-verified candidates registered on SkillLens AI."}
           </p>
         </div>
-        <div className="text-xs text-slate-500">{total} total candidates</div>
+        <div className="flex items-center gap-3">
+          {jobId && (
+            <button
+              onClick={() => nav("/company/candidates")}
+              className="text-xs text-indigo-600 hover:underline font-medium"
+            >
+              ← All candidates
+            </button>
+          )}
+          <span className="text-xs text-slate-500">{total} {jobTitle ? "applicants" : "candidates"}</span>
+        </div>
       </div>
 
       {err && (
@@ -162,7 +188,7 @@ const CompanyCandidates = () => {
         {query && (
           <button
             type="button"
-            onClick={() => { setQuery(""); setPage(1); fetchCandidates("", 1); }}
+            onClick={() => { setQuery(""); setPage(1); fetchCandidates("", 1, jobId); }}
             className="rounded-xl border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50"
           >
             Clear
@@ -178,6 +204,7 @@ const CompanyCandidates = () => {
               <th className="py-3 pl-5 pr-4 font-medium">Candidate</th>
               <th className="py-3 pr-4 font-medium hidden sm:table-cell">Location</th>
               <th className="py-3 pr-4 font-medium">Skills</th>
+              {jobId && <th className="py-3 pr-4 font-medium">Quiz Score</th>}
               <th className="py-3 pr-4 font-medium hidden md:table-cell">Joined</th>
               <th className="py-3 pr-5 text-right font-medium">Action</th>
             </tr>
@@ -185,13 +212,13 @@ const CompanyCandidates = () => {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={5} className="py-8 text-center text-xs text-slate-400">
+                <td colSpan={jobId ? 6 : 5} className="py-8 text-center text-xs text-slate-400">
                   Loading candidates…
                 </td>
               </tr>
             ) : candidates.length === 0 ? (
               <tr>
-                <td colSpan={5} className="py-8 text-center text-xs text-slate-400">
+                <td colSpan={jobId ? 6 : 5} className="py-8 text-center text-xs text-slate-400">
                   No candidates found.
                 </td>
               </tr>
@@ -229,6 +256,13 @@ const CompanyCandidates = () => {
                         )}
                       </div>
                     </td>
+                    {jobId && (
+                      <td className="py-3 pr-4">
+                        <span className="font-semibold text-indigo-600">
+                          {c.quizScore != null ? `${c.quizScore}%` : "—"}
+                        </span>
+                      </td>
+                    )}
                     <td className="py-3 pr-4 text-slate-500 hidden md:table-cell">
                       {c.createdAt ? new Date(c.createdAt).toLocaleDateString() : "—"}
                     </td>
