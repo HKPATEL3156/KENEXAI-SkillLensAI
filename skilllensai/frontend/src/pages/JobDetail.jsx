@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import api, { applyToJob, applyToJobWithResume, getProfile, uploadResume, downloadCareerResume, downloadResume, getQuizAttempts } from '../services/api';
+import api, { applyToJobWithResume, getProfile, uploadResume, downloadResume, getQuizAttempts } from '../services/api';
 
 const JobDetail = () => {
   const { id } = useParams();
@@ -15,7 +15,8 @@ const JobDetail = () => {
   const [academic, setAcademic] = useState({ degree: '', institution: '', cgpa: '' });
   const [consentConfirmed, setConsentConfirmed] = useState(false);
   const [profile, setProfile] = useState(null);
-  const [useProfileResume, setUseProfileResume] = useState(false);
+  const [hasProfileResume, setHasProfileResume] = useState(false);
+  const [hasProfileEducation, setHasProfileEducation] = useState(false);
   const [attempts, setAttempts] = useState([]);
 
   useEffect(() => {
@@ -29,17 +30,33 @@ const JobDetail = () => {
       } finally { setLoading(false); }
     };
     load();
-    // load user profile (resume/info), career and quiz attempts to prefill application
+
     (async () => {
       try {
         const r = await getProfile();
         const prof = r.data.profile || r.data || null;
         setProfile(prof);
-        if (prof?.resumePath) setUseProfileResume(true);
+        
+        // Auto-use stored resume if available
+        if (prof?.resumeFilePath) {
+          setHasProfileResume(true);
+        }
+
+        // Auto-fill and hide education if available
+        if (prof?.education && prof.education.length > 0) {
+          const latestEd = prof.education[0];
+          setAcademic({
+            degree: latestEd.level || latestEd.degree || '',
+            institution: latestEd.institution || '',
+            cgpa: latestEd.cgpa || latestEd.percentage || ''
+          });
+          setHasProfileEducation(true);
+        }
+
       } catch (e) {
         // ignore if not logged in
       }
-      // career document is optional; full profile fetched above contains education/experience
+
       try {
         const qa = await getQuizAttempts();
         setAttempts(qa.data.attempts || []);
@@ -57,13 +74,13 @@ const JobDetail = () => {
     }
     setApplying(true);
     setErr('');
-    // validation: resume required, academic fields required, consent required, cover letter required
-    if (!useProfileResume && !resumeFile) {
-      setErr('Please upload your resume or choose your uploaded resume before applying.');
+
+    if (!hasProfileResume && !resumeFile) {
+      setErr('Please upload your resume to apply.');
       setApplying(false);
       return;
     }
-    if (!academic.degree || !academic.institution || !academic.cgpa) {
+    if (!hasProfileEducation && (!academic.degree || !academic.institution || !academic.cgpa)) {
       setErr('Please fill your academic details (degree, institution, CGPA/Percent).');
       setApplying(false);
       return;
@@ -78,17 +95,12 @@ const JobDetail = () => {
       setApplying(false);
       return;
     }
+
     try {
-      // If user chose to use their uploaded profile resume, fetch it from profile
-      if (useProfileResume && profile?.resumePath) {
-        // the backend apply endpoint accepts resume upload; however putting a remote URL
-        // is not supported here; prefer using applyToJob which uses current profile resume server-side.
-        await applyToJob(id);
-      } else if (resumeFile || coverLetter || academic.degree) {
-        await applyToJobWithResume(id, resumeFile, coverLetter, academic, consentConfirmed);
-      } else {
-        await applyToJob(id);
-      }
+      // If we have a profile resume, we pass file as null. The backend falls back to the profile's resume.
+      const fileToUpload = hasProfileResume ? null : resumeFile;
+      await applyToJobWithResume(id, fileToUpload, coverLetter, academic, consentConfirmed);
+      
       setApplied(true);
       setErr('');
     } catch (e) {
@@ -118,148 +130,161 @@ const JobDetail = () => {
 
         <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
+            {/* 1. Resume Section */}
             <div className="mb-4">
               <label className="block text-sm font-medium mb-2">Your Resume (required)</label>
-              <div className="border-2 border-dashed border-slate-200 rounded-lg p-6 flex items-center gap-4 bg-white">
-                <div className="flex-1">
-                  <div className="text-sm text-slate-600 mb-2">Upload your resume (PDF/DOC/DOCX). This is required to apply.</div>
-                  <div className="flex items-center gap-3">
-                    <input id="fileUpload" type="file" accept="application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={(e)=>{setResumeFile(e.target.files[0]||null); setUseProfileResume(false);}} />
-                    {profile?.resumePath && (
-                      <label className="inline-flex items-center gap-2 text-sm">
-                        <input type="checkbox" checked={useProfileResume} onChange={e=>{setUseProfileResume(e.target.checked); if (e.target.checked) setResumeFile(null);}} />
-                        Use uploaded resume ({profile.resumePath.split('/').pop()})
-                      </label>
-                    )}
+              {hasProfileResume ? (
+                <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200">
+                  <div className="flex items-center gap-2">
+                    <span className="text-emerald-600 text-lg">✓</span>
+                    <span className="text-sm font-medium text-emerald-800">Saved resume will be used</span>
                   </div>
+                  <p className="text-xs text-emerald-600 mt-1">We'll attach the resume you already uploaded to your profile.</p>
                 </div>
-                <div className="flex flex-col items-end gap-2">
-                  <button onClick={async () => {
-                    try {
-                      if (!resumeFile) return alert('Choose a file to upload');
-                      await uploadResume(resumeFile);
-                      const p = await getProfile();
-                      setProfile(p.data.profile || p.data || null);
-                      setUseProfileResume(true);
-                      alert('Resume uploaded');
-                    } catch (e) { console.error(e); alert('Upload failed'); }
-                  }} className="px-4 py-2 bg-indigo-600 text-white rounded-lg shadow">Upload</button>
-                  <button onClick={async () => {
-                    try {
-                      const dl = await downloadCareerResume().catch(()=>downloadResume());
-                      const blob = new Blob([dl.data], { type: dl.headers?.['content-type'] || 'application/octet-stream' });
-                      const url = window.URL.createObjectURL(blob);
-                      const a = document.createElement('a');
-                      a.href = url;
-                      a.download = profile?.resumePath?.split('/')?.pop() || 'resume.pdf';
-                      document.body.appendChild(a);
-                      a.click();
-                      a.remove();
-                      window.URL.revokeObjectURL(url);
-                    } catch (e) { console.error(e); alert('Download failed'); }
-                  }} className="px-3 py-1 border rounded">Download</button>
+              ) : (
+                <div className="border-2 border-dashed border-slate-200 rounded-lg p-6 flex flex-col items-center gap-3 bg-white">
+                  <div className="text-sm text-slate-600 text-center">Upload your resume (PDF/DOC) to apply.</div>
+                  <input 
+                    id="fileUpload" 
+                    type="file" 
+                    accept="application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" 
+                    onChange={(e)=>{setResumeFile(e.target.files[0]||null);}} 
+                    className="text-sm max-w-full"
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* 2. Education Section */}
+            {!hasProfileEducation && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium mb-2">Education Details (required)</label>
+                <div className="grid grid-cols-3 gap-2">
+                  <input placeholder="Degree (e.g. B.Tech)" value={academic.degree} onChange={e=>setAcademic({...academic, degree: e.target.value})} className="border border-slate-200 p-2 rounded text-sm w-full focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
+                  <input placeholder="Institution" value={academic.institution} onChange={e=>setAcademic({...academic, institution: e.target.value})} className="border border-slate-200 p-2 rounded text-sm w-full focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
+                  <input placeholder="CGPA/Percent" value={academic.cgpa} onChange={e=>setAcademic({...academic, cgpa: e.target.value})} className="border border-slate-200 p-2 rounded text-sm w-full focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
                 </div>
               </div>
-            </div>
+            )}
+            {hasProfileEducation && (
+              <div className="mb-4 p-4 rounded-xl bg-emerald-50 border border-emerald-200">
+                <div className="flex items-center gap-2">
+                  <span className="text-emerald-600 text-lg">✓</span>
+                  <span className="text-sm font-medium text-emerald-800">Education details populated</span>
+                </div>
+                <p className="text-xs text-emerald-600 mt-1">{academic.degree} • {academic.institution} • {academic.cgpa}</p>
+              </div>
+            )}
 
-            <div className="mb-4 grid grid-cols-3 gap-2">
-              <input placeholder="Degree (e.g. B.Tech)" value={academic.degree} onChange={e=>setAcademic({...academic, degree: e.target.value})} className="border p-2 rounded" />
-              <input placeholder="Institution" value={academic.institution} onChange={e=>setAcademic({...academic, institution: e.target.value})} className="border p-2 rounded" />
-              <input placeholder="CGPA/Percent" value={academic.cgpa} onChange={e=>setAcademic({...academic, cgpa: e.target.value})} className="border p-2 rounded" />
-            </div>
-
-            <div className="mb-4">
-              <label className="inline-flex items-center">
-                <input type="checkbox" checked={consentConfirmed} onChange={e=>setConsentConfirmed(e.target.checked)} className="mr-2" />
-                <span className="text-sm text-slate-600">I confirm the information provided is accurate</span>
-              </label>
-            </div>
+            {/* 3. Cover Letter */}
             <div className="mb-4">
               <label className="block text-sm font-medium mb-1">Cover letter (required)</label>
-              <textarea value={coverLetter} onChange={(e)=>setCoverLetter(e.target.value)} className="w-full p-3 border rounded" rows={6} />
+              <textarea 
+                placeholder="Why are you a great fit for this role?"
+                value={coverLetter} 
+                onChange={(e)=>setCoverLetter(e.target.value)} 
+                className="w-full p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm" 
+                rows={5} 
+              />
             </div>
-            {err && <div className="text-sm text-rose-600 font-medium mb-2">{err}</div>}
+
+            {/* 4. Consent */}
+            <div className="mb-4">
+              <label className="inline-flex items-center cursor-pointer">
+                <input type="checkbox" checked={consentConfirmed} onChange={e=>setConsentConfirmed(e.target.checked)} className="mr-2 h-4 w-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500" />
+                <span className="text-sm text-slate-700 font-medium">I confirm the information provided is accurate</span>
+              </label>
+            </div>
+            
+            {err && <div className="text-sm text-rose-600 font-medium mb-4">{err}</div>}
+            
+            {/* Submit Button */}
+            <div className="mt-2">
+              {applied ? (
+                <div className="w-full px-5 py-3 bg-emerald-100 text-emerald-700 text-center rounded-xl font-semibold">
+                  Application Submitted Successfully ✓
+                </div>
+              ) : (
+                <button
+                  onClick={handleApply}
+                  disabled={applying}
+                  className="w-full px-5 py-3 bg-indigo-600 text-white font-medium rounded-xl hover:bg-indigo-700 disabled:opacity-60 transition-colors shadow-sm"
+                >
+                  {applying ? 'Submitting Application...' : 'Apply for this role'}
+                </button>
+              )}
+            </div>
           </div>
 
-          <aside className="bg-white p-6 rounded-2xl shadow-sm border">
-            <div className="font-semibold mb-2">Profile</div>
+          {/* Profile Summary Sidebar */}
+          <aside className="bg-slate-50 p-6 rounded-2xl border border-slate-100 h-fit sticky top-6">
+            <div className="font-bold text-slate-800 mb-4 text-lg">Your Profile Summary</div>
             {profile ? (
-              <div className="text-sm text-slate-700">
-                <div className="font-medium">{profile.fullName || profile.name || '—'}</div>
-                <div className="text-xs text-slate-500">{profile.email}</div>
-                {profile.headline && <div className="text-xs text-slate-500">{profile.headline}</div>}
-                {profile.primaryLocation && <div className="text-xs text-slate-500">{profile.primaryLocation}</div>}
-                <div className="mt-3">
-                  <div className="text-xs font-medium mb-1">Saved resume</div>
-                  {profile.resumePath ? (
-                    <div className="flex items-center gap-2">
-                      <a className="text-sm text-indigo-600" href={profile.resumePath} target="_blank" rel="noreferrer">Open uploaded resume</a>
-                      <a className="text-sm text-slate-500" href={profile.resumePath} download>· Download</a>
-                    </div>
-                  ) : (
-                    <div className="text-xs text-slate-400">No resume uploaded</div>
-                  )}
+              <div className="space-y-4">
+                <div>
+                  <div className="font-semibold text-slate-900">{profile.fullName || profile.username || '—'}</div>
+                  <div className="text-sm text-slate-500">{profile.email}</div>
+                  {profile.headline && <div className="text-sm text-slate-600 mt-1">{profile.headline}</div>}
                 </div>
-                {/* Experience summary */}
+
+                {profile.resumeFilePath ? (
+                  <div className="pt-4 border-t border-slate-200">
+                    <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Resume</div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">📄</span>
+                      <a className="text-sm font-medium text-indigo-600 hover:underline" href={`http://localhost:5000${profile.resumeFilePath}`} target="_blank" rel="noreferrer">
+                        View document
+                      </a>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="pt-4 border-t border-slate-200 text-sm text-slate-400">
+                    No resume uploaded to profile.
+                  </div>
+                )}
+
                 {profile.experience && profile.experience.length > 0 && (
-                  <div className="mt-3">
-                    <div className="text-xs font-medium mb-1">Experience</div>
-                    <div className="text-xs text-slate-600">
-                      {profile.experience.slice(0,3).map((ex,i) => (
-                        <div key={i} className="mb-1">{ex.role} @ {ex.company} <span className="text-[11px] text-slate-400">({ex.startDate ? new Date(ex.startDate).getFullYear() : ''} - {ex.currentlyWorking ? 'Present' : (ex.endDate ? new Date(ex.endDate).getFullYear() : '')})</span></div>
+                  <div className="pt-4 border-t border-slate-200">
+                    <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Experience</div>
+                    <div className="space-y-2">
+                      {profile.experience.slice(0,2).map((ex,i) => (
+                        <div key={i} className="text-sm">
+                          <span className="font-medium text-slate-800">{ex.role}</span> at <span className="text-slate-600">{ex.company}</span>
+                        </div>
                       ))}
-                      {profile.experience.length > 3 && <div className="text-[11px] text-slate-400">+{profile.experience.length - 3} more</div>}
+                      {profile.experience.length > 2 && <div className="text-xs text-indigo-600 font-medium">+{profile.experience.length - 2} more</div>}
                     </div>
                   </div>
                 )}
-                {/* Education */}
+
                 {profile.education && profile.education.length > 0 && (
-                  <div className="mt-3">
-                    <div className="text-xs font-medium mb-1">Education</div>
-                    <div className="text-xs text-slate-600">
+                  <div className="pt-4 border-t border-slate-200">
+                    <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Education</div>
+                    <div className="space-y-2">
                       {profile.education.map((ed,i) => (
-                        <div key={i} className="mb-1">{ed.level || ed.degree} • {ed.institution} <span className="text-[11px] text-slate-400">{ed.cgpa ? `CGPA: ${ed.cgpa}` : (ed.percentage ? `Percent: ${ed.percentage}` : '')}</span></div>
+                        <div key={i} className="text-sm text-slate-700">
+                          <span className="font-semibold">{ed.level || ed.degree}</span> • {ed.institution}
+                        </div>
                       ))}
                     </div>
-                  </div>
-                )}
-                {/* Quiz / skill score summary */}
-                {attempts && attempts.length > 0 && (
-                  <div className="mt-3">
-                    <div className="text-xs font-medium mb-1">Latest Quiz</div>
-                    {(() => {
-                      const submitted = attempts.filter(a => a.status === 'submitted').slice().sort((a,b)=> new Date(b.createdAt)-new Date(a.createdAt));
-                      const latest = submitted[0] || attempts.slice().sort((a,b)=> new Date(b.createdAt)-new Date(a.createdAt))[0];
-                      if (!latest) return <div className="text-xs text-slate-400">No quiz attempts</div>;
-                      return (<div className="text-xs text-slate-700">{latest.quizName || 'Quiz'} — <span className="font-semibold text-indigo-600">{latest.obtainedMarks || 0}/{latest.totalMarks || 0}</span></div>);
-                    })()}
                   </div>
                 )}
               </div>
             ) : (
-              <div className="text-sm text-slate-500">Sign in to auto-fill your details and use your uploaded resume.</div>
+              <div className="text-sm text-slate-500 italic">Sign in to auto-fill your details.</div>
             )}
 
-            <div className="mt-4">
-              <div className="font-semibold mb-1">Skills</div>
-              <div className="flex gap-2 flex-wrap">{(job.skills||[]).map((s,i)=>(<span key={i} className="text-xs bg-white px-2 py-1 rounded-lg border">{s}</span>))}</div>
+            <div className="pt-4 mt-4 border-t border-slate-200">
+              <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Required Skills</div>
+              <div className="flex gap-2 flex-wrap">
+                {(job.skills||[]).map((s,i) => (
+                  <span key={i} className="text-xs font-medium bg-white text-slate-700 px-2.5 py-1 rounded-full border border-slate-200">
+                    {s}
+                  </span>
+                ))}
+              </div>
             </div>
           </aside>
-        </div>
-
-        <div className="mt-6 flex items-center gap-3">
-          {applied ? (
-            <span className="px-4 py-2 bg-emerald-100 text-emerald-700 rounded font-medium">Application submitted ✓</span>
-          ) : (
-            <button
-              onClick={handleApply}
-              disabled={applying}
-              className="px-5 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-60"
-            >
-              {applying ? 'Applying...' : 'Apply for this role'}
-            </button>
-          )}
-          {err && <span className="text-sm text-red-600">{err}</span>}
         </div>
       </div>
     </div>
