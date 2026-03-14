@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Link } from "react-router-dom";
 import Layout from "../components/Layout";
 import api from "../services/api";
 
@@ -92,6 +93,10 @@ const CompanyRegister = () => {
             <button disabled={loading} className="px-6 py-3 bg-blue-600 text-white rounded">{loading ? "Submitting..." : "Submit Request"}</button>
           </div>
           {message && <div className="mt-4 text-sm text-slate-700">{message}</div>}
+          <div className="mt-2 text-sm text-slate-500">
+            Already registered and approved?{" "}
+            <Link to="/company/login" className="text-blue-600 font-medium hover:underline">Sign in here</Link>
+          </div>
         </form>
       </div>
     </Layout>

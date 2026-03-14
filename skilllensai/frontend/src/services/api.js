@@ -79,4 +79,17 @@ export const getPaperStatus = () => api.get("/quiz/paper-status");
 export const changePassword = (data) => api.post("/auth/change-password", data);
 export const deleteAccount = () => api.delete("/auth/delete-account");
 
+// Company dashboard APIs
+const companyApi = axios.create({ baseURL: "/api" });
+companyApi.interceptors.request.use((config) => {
+  const token = localStorage.getItem("companyToken");
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+export const companyLogin = (data) => companyApi.post("/company/login", data);
+export const getCompanyProfile = () => companyApi.get("/company/dashboard/profile");
+export const updateCompanyProfile = (data) => companyApi.patch("/company/dashboard/profile", data);
+export const getCompanyStats = () => companyApi.get("/company/dashboard/stats");
+export const getCompanyCandidates = (params) => companyApi.get("/company/dashboard/candidates", { params });
+
 export default api;

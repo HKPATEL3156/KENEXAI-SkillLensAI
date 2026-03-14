@@ -35,8 +35,8 @@ const Login = ({ defaultRole = "user" }) => {
           password: data.password,
         });
         localStorage.setItem("companyToken", res.data.token);
-        // Placeholder redirect until a dedicated company dashboard exists
-        nav("/");
+        localStorage.setItem("companyInfo", JSON.stringify(res.data.company));
+        nav("/company/dashboard");
       }
     } catch (err) {
       if (

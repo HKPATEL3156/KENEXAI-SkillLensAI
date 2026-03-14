@@ -15,7 +15,7 @@ import JobDetail from "../pages/JobDetail";
 const DashboardRoutes = () => {
   return (
     <Routes>
-      <Route path="/dashboard" element={<DashboardLayout />}>
+      <Route path="/" element={<DashboardLayout />}>
         <Route index element={<DashboardHome />} />
         <Route path="profile" element={<MyProfile />} />
         <Route path="academics" element={<MyAcademics />} />

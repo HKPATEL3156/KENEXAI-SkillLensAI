@@ -26,4 +26,11 @@ router.post("/register", upload.single("document"), companyController.register);
 // Public: company login
 router.post("/login", companyController.login);
 
+// Protected company dashboard routes
+const dashCtrl = require("../controllers/companyDashboard.controller");
+router.get("/dashboard/profile", dashCtrl.verifyCompany, dashCtrl.getProfile);
+router.patch("/dashboard/profile", dashCtrl.verifyCompany, dashCtrl.updateProfile);
+router.get("/dashboard/stats", dashCtrl.verifyCompany, dashCtrl.getStats);
+router.get("/dashboard/candidates", dashCtrl.verifyCompany, dashCtrl.getCandidates);
+
 module.exports = router;
