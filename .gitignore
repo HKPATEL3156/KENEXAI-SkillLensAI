@@ -1,0 +1,27 @@
+/*
+!/skilllensai/
+
+# Ignore all .env files in skilllensai
+skilllensai/**/*.env
+
+# Ignore backend uploads folder
+skilllensai/backend/uploads/
+
+# Ignore extra folder in skilllensai
+skilllensai/extra/
+
+# Ignore Python cache in ml-service
+skilllensai/ml-service/__pycache__
+
+skilllensai/backend/uploads/
+
+# Node modules and build outputs
+skilllensai/**/node_modules/
+skilllensai/**/dist/
+skilllensai/**/build/
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.vscode/
+

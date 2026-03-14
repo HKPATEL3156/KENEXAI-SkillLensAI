@@ -1,0 +1,428 @@
+[
+  {
+    "id": 1,
+    "text": "A user reports that a button on your webpage looks different across browsers. Which CSS properties might be causing this inconsistency?",
+    "code": null,
+    "type": "MSQ",
+    "options": {
+      "A": "font-size",
+      "B": "box-sizing",
+      "C": "border-radius",
+      "D": "line-height"
+    },
+    "correct": [
+      "B",
+      "C"
+    ],
+    "difficulty": "easy"
+  },
+  {
+    "id": 2,
+    "text": "What will be logged to the console when this code executes?",
+    "code": "console.log(typeof null === 'object' && typeof undefined === 'undefined');",
+    "type": "MCQ",
+    "options": {
+      "A": "true",
+      "B": "false",
+      "C": "Error",
+      "D": "undefined"
+    },
+    "correct": [
+      "A"
+    ],
+    "difficulty": "easy"
+  },
+  {
+    "id": 3,
+    "text": "You need to display a list of items fetched from an API in a React component. Which of the following are best practices for rendering lists?",
+    "code": null,
+    "type": "MSQ",
+    "options": {
+      "A": "Using `map()` to iterate over the array",
+      "B": "Providing a unique `key` prop for each list item",
+      "C": "Storing the list items directly in local storage",
+      "D": "Using `for` loop inside JSX"
+    },
+    "correct": [
+      "A",
+      "B"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "id": 4,
+    "text": "Consider this Node.js module. What will be the output when `main.js` imports and uses it?",
+    "code": "// module.js\nconst data = 'Hello';\nmodule.exports = { data };\n\n// main.js\nconst myModule = require('./module');\nconsole.log(myModule.data);",
+    "type": "MCQ",
+    "options": {
+      "A": "Hello",
+      "B": "{ data: 'Hello' }",
+      "C": "undefined",
+      "D": "Error"
+    },
+    "correct": [
+      "A"
+    ],
+    "difficulty": "easy"
+  },
+  {
+    "id": 5,
+    "text": "Your e-commerce application frequently queries products by `category` and `price`. What MongoDB strategies can improve query performance?",
+    "code": null,
+    "type": "MSQ",
+    "options": {
+      "A": "Creating a compound index on `{ category: 1, price: 1 }`",
+      "B": "Storing all product data in a single document",
+      "C": "Using `db.collection.explain()` to analyze queries",
+      "D": "Sharding the collection based on `_id`"
+    },
+    "correct": [
+      "A",
+      "C"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "id": 6,
+    "text": "What will be logged to the console when this JavaScript code runs?",
+    "code": "function createCounter() {\n  let count = 0;\n  return function() {\n    count++;\n    return count;\n  };\n}\nconst counter = createCounter();\nconsole.log(counter());\nconsole.log(counter());",
+    "type": "MCQ",
+    "options": {
+      "A": "1\n2",
+      "B": "1\n1",
+      "C": "0\n1",
+      "D": "undefined\nundefined"
+    },
+    "correct": [
+      "A"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "id": 7,
+    "text": "Which of the following are true about Bootstrap's grid system?",
+    "code": null,
+    "type": "MSQ",
+    "options": {
+      "A": "It uses a 12-column layout",
+      "B": "Columns are defined using `col-*` classes",
+      "C": "It is based on Flexbox",
+      "D": "It requires custom CSS for responsiveness"
+    },
+    "correct": [
+      "A",
+      "B",
+      "C"
+    ],
+    "difficulty": "easy"
+  },
+  {
+    "id": 8,
+    "text": "A React component needs to update its state based on previous state. Which of these are correct ways to update `count`?",
+    "code": "class MyComponent extends React.Component {\n  state = { count: 0 };\n  increment = () => {\n    // ... update logic here\n  };\n}",
+    "type": "MSQ",
+    "options": {
+      "A": "this.setState({ count: this.state.count + 1 })",
+      "B": "this.setState(prevState => ({ count: prevState.count + 1 }))",
+      "C": "this.state.count++",
+      "D": "this.setState({ count: ++this.state.count })"
+    },
+    "correct": [
+      "A",
+      "B"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "id": 9,
+    "text": "Your Express API handles user authentication. What are critical security considerations when implementing login endpoints?",
+    "code": null,
+    "type": "MSQ",
+    "options": {
+      "A": "Hashing user passwords before storing them",
+      "B": "Using HTTPS for all API communication",
+      "C": "Storing JWTs directly in local storage",
+      "D": "Implementing rate limiting for login attempts"
+    },
+    "correct": [
+      "A",
+      "B",
+      "D"
+    ],
+    "difficulty": "hard"
+  },
+  {
+    "id": 10,
+    "text": "What is the exact order of console logs when this JavaScript code runs?",
+    "code": "console.log('A');\nsetTimeout(() => console.log('B'), 0);\nPromise.resolve().then(() => console.log('C'));\nconsole.log('D');",
+    "type": "MCQ",
+    "options": {
+      "A": "A D C B",
+      "B": "A B C D",
+      "C": "A C B D",
+      "D": "A D B C"
+    },
+    "correct": [
+      "A"
+    ],
+    "difficulty": "hard"
+  },
+  {
+    "id": 11,
+    "text": "A `div` element is not centered horizontally on the page despite using `margin: auto`. What could be potential reasons for this issue?",
+    "code": null,
+    "type": "MSQ",
+    "options": {
+      "A": "The `div` has `display: inline`",
+      "B": "The `div` has a fixed `width` property",
+      "C": "The `div` is a flex item in a flex container",
+      "D": "The `div` has `float: left` applied"
+    },
+    "correct": [
+      "A",
+      "D"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "id": 12,
+    "text": "Which of the following is NOT a valid data type in MongoDB?",
+    "code": null,
+    "type": "MCQ",
+    "options": {
+      "A": "String",
+      "B": "Number",
+      "C": "Date",
+      "D": "ArrayBuffer"
+    },
+    "correct": [
+      "D"
+    ],
+    "difficulty": "easy"
+  },
+  {
+    "id": 13,
+    "text": "You are building an Express.js API. Which of these are good practices for structuring your routes and middleware?",
+    "code": "app.use((req, res, next) => { /* ... */ });\napp.get('/users', (req, res) => { /* ... */ });\napp.post('/users', (req, res) => { /* ... */ });",
+    "type": "MSQ",
+    "options": {
+      "A": "Using `express.Router()` for modular routes",
+      "B": "Placing global middleware before route definitions",
+      "C": "Handling all errors with `try-catch` in every route handler",
+      "D": "Using separate files for different route groups"
+    },
+    "correct": [
+      "A",
+      "B",
+      "D"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "id": 14,
+    "text": "A React component re-renders frequently, causing performance issues. What strategies can you employ to optimize its rendering?",
+    "code": null,
+    "type": "MSQ",
+    "options": {
+      "A": "Using `React.memo` for functional components",
+      "B": "Implementing `shouldComponentUpdate` in class components",
+      "C": "Moving state closer to where it's needed",
+      "D": "Using `useEffect` without a dependency array"
+    },
+    "correct": [
+      "A",
+      "B",
+      "C"
+    ],
+    "difficulty": "hard"
+  },
+  {
+    "id": 15,
+    "text": "What will be the output when `greetFunc()` is called in this code?",
+    "code": "const obj = {\n  name: 'Alice',\n  greet: function() {\n    console.log(this.name);\n  }\n};\nconst greetFunc = obj.greet;\ngreetFunc();",
+    "type": "MCQ",
+    "options": {
+      "A": "Alice",
+      "B": "undefined",
+      "C": "Error",
+      "D": "[object Object]"
+    },
+    "correct": [
+      "B"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "id": 16,
+    "text": "You're building a Node.js API that interacts with MongoDB. What are best practices for handling errors during database operations?",
+    "code": null,
+    "type": "MSQ",
+    "options": {
+      "A": "Using `try-catch` blocks with `async/await` for database calls",
+      "B": "Returning generic HTTP 500 errors for all database failures",
+      "C": "Logging detailed error messages on the server",
+      "D": "Implementing graceful shutdown for database connections"
+    },
+    "correct": [
+      "A",
+      "C",
+      "D"
+    ],
+    "difficulty": "hard"
+  },
+  {
+    "id": 17,
+    "text": "Which of the following HTML5 elements are considered semantic?",
+    "code": null,
+    "type": "MSQ",
+    "options": {
+      "A": "<div>",
+      "B": "<article>",
+      "C": "<span>",
+      "D": "<nav>"
+    },
+    "correct": [
+      "B",
+      "D"
+    ],
+    "difficulty": "easy"
+  },
+  {
+    "id": 18,
+    "text": "A developer is trying to iterate over an object's properties. Which methods are suitable for this task?",
+    "code": null,
+    "type": "MSQ",
+    "options": {
+      "A": "Object.keys()",
+      "B": "for...in loop",
+      "C": "Object.values()",
+      "D": "Array.prototype.forEach()"
+    },
+    "correct": [
+      "A",
+      "B",
+      "C"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "id": 19,
+    "text": "Given these CSS rules, what color will the `p` element's text be?",
+    "code": "p { color: red; }\n.text-blue { color: blue; }\n#my-paragraph { color: green; }\n<p id=\"my-paragraph\" class=\"text-blue\">Hello</p>",
+    "type": "MCQ",
+    "options": {
+      "A": "red",
+      "B": "blue",
+      "C": "green",
+      "D": "black"
+    },
+    "correct": [
+      "C"
+    ],
+    "difficulty": "hard"
+  },
+  {
+    "id": 20,
+    "text": "Your React frontend needs to send data to an Express backend. Which of these are valid ways to achieve this?",
+    "code": null,
+    "type": "MSQ",
+    "options": {
+      "A": "Using `fetch` API in React to make a POST request",
+      "B": "Sending data via URL parameters for sensitive information",
+      "C": "Configuring CORS middleware in Express",
+      "D": "Using a WebSocket connection for real-time updates"
+    },
+    "correct": [
+      "A",
+      "C",
+      "D"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "id": 21,
+    "text": "For a social media app, you need to store user posts and their comments. What are good MongoDB schema design choices?",
+    "code": null,
+    "type": "MSQ",
+    "options": {
+      "A": "Embedding comments directly within the post document if comments are few and read together",
+      "B": "Storing comments in a separate collection with a reference to the post ID",
+      "C": "Using a single document for all posts and comments to simplify queries",
+      "D": "Denormalizing frequently accessed comment data into the post document"
+    },
+    "correct": [
+      "A",
+      "B",
+      "D"
+    ],
+    "difficulty": "hard"
+  },
+  {
+    "id": 22,
+    "text": "What will be the output of the following JavaScript code?",
+    "code": "console.log(10 + \"5\");",
+    "type": "MCQ",
+    "options": {
+      "A": "15",
+      "B": "\"105\"",
+      "C": "Error",
+      "D": "NaN"
+    },
+    "correct": [
+      "B"
+    ],
+    "difficulty": "easy"
+  },
+  {
+    "id": 23,
+    "text": "Your Node.js server is experiencing slow response times due to heavy CPU-bound tasks. What strategies can help mitigate this?",
+    "code": null,
+    "type": "MSQ",
+    "options": {
+      "A": "Using the `cluster` module to utilize multiple CPU cores",
+      "B": "Offloading CPU-bound tasks to worker threads",
+      "C": "Increasing the server's RAM",
+      "D": "Making all database queries synchronous"
+    },
+    "correct": [
+      "A",
+      "B"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "id": 24,
+    "text": "A React component uses `useEffect` to fetch data. Which of these `useEffect` dependencies will cause issues or unexpected behavior?",
+    "code": "function MyComponent({ userId }) {\n  const [data, setData] = useState(null);\n  useEffect(() => {\n    fetchData(userId).then(setData);\n  }, [/* dependencies here */]);\n}",
+    "type": "MSQ",
+    "options": {
+      "A": "`[]` (empty array)",
+      "B": "`[userId]`",
+      "C": "`[data]`",
+      "D": "No dependency array (runs on every render)"
+    },
+    "correct": [
+      "C",
+      "D"
+    ],
+    "difficulty": "hard"
+  },
+  {
+    "id": 25,
+    "text": "You need to create a responsive navigation bar that hides on small screens and appears as a hamburger menu. Which technologies/techniques are essential?",
+    "code": null,
+    "type": "MSQ",
+    "options": {
+      "A": "CSS Media Queries",
+      "B": "JavaScript for toggling menu visibility",
+      "C": "Bootstrap's Navbar component",
+      "D": "Server-side rendering for menu logic"
+    },
+    "correct": [
+      "A",
+      "B",
+      "C"
+    ],
+    "difficulty": "medium"
+  }
+]
