@@ -521,8 +521,14 @@ const SkillLensCoach = () => {
                               if (resp.status === 200) {
                                 const role = json.prediction && (json.prediction.role || json.prediction?.role_name || json.prediction?.roleName || json.prediction?.label) ? (json.prediction.role || json.prediction.role_name || json.prediction.roleName || json.prediction.label) : (json.prediction && json.prediction[0]) || null;
                                 setSuggestionResult({ role, usedSkills: json.usedSkills || [] });
+                                if (role) {
+                                  localStorage.setItem('suggestedRole', role);
+                                } else {
+                                  localStorage.removeItem('suggestedRole');
+                                }
                               } else {
                                 setSuggestionResult({ error: json.error || json.message || 'Prediction failed' });
+                                localStorage.removeItem('suggestedRole');
                               }
                             } catch (e) {
                               const msg = e?.response?.data?.error || e?.response?.data?.message || e.message || 'Request failed';
@@ -533,7 +539,7 @@ const SkillLensCoach = () => {
                           {suggestionResult && suggestionResult.role && (
                             <>
                               <div className="text-sm text-indigo-700 font-semibold">Suggested role: {suggestionResult.role}</div>
-                              <button onClick={() => navigate(`/jobs?role=${encodeURIComponent(suggestionResult.role)}`)} className="ml-3 bg-green-600 text-white px-3 py-1 rounded">Find the job</button>
+                              <button onClick={() => navigate(`/dashboard/jobs?role=${encodeURIComponent(suggestionResult.role)}`)} className="ml-3 bg-green-600 text-white px-3 py-1 rounded">Find the job</button>
                             </>
                           )}
 

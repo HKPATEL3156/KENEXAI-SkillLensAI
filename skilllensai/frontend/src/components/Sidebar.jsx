@@ -53,6 +53,16 @@ const Sidebar = () => {
           </li>
           <li
             className="cursor-pointer hover:bg-blue-700 p-2 rounded"
+            onClick={() => {
+              const role = typeof window !== 'undefined' ? localStorage.getItem('suggestedRole') : null;
+              if (role) navigate(`/dashboard/jobs?role=${encodeURIComponent(role)}`);
+              else navigate('/dashboard/jobs');
+            }}
+          >
+            Job Finder
+          </li>
+          <li
+            className="cursor-pointer hover:bg-blue-700 p-2 rounded"
             onClick={() => navigate("/dashboard/activity")}
           >
             My Activity

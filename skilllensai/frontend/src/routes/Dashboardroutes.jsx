@@ -9,6 +9,8 @@ import SkillLensCoach from "../pages/Skilllenscoach";
 import QuizPage from "../pages/QuizPage";
 import MyActivity from "../pages/Myactivity";
 import Settings from "../pages/Settings";
+import Jobs from "../pages/Jobs";
+import JobDetail from "../pages/JobDetail";
 
 const DashboardRoutes = () => {
   return (
@@ -20,6 +22,8 @@ const DashboardRoutes = () => {
         <Route path="career" element={<MyCareer />} />
         <Route path="coach" element={<SkillLensCoach />} />
         <Route path="coach/quiz" element={<QuizPage />} />
+        <Route path="jobs" element={<Jobs />} />
+        <Route path="jobs/:id" element={<JobDetail />} />
         <Route path="activity" element={<MyActivity />} />
         <Route path="settings" element={<Settings />} />
       </Route>

@@ -1,5 +1,5 @@
 import React from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import {
   FaUser,
   FaGraduationCap,
@@ -8,6 +8,7 @@ import {
   FaTasks,
   FaCog,
   FaSignOutAlt,
+  FaSearch,
 } from "react-icons/fa";
 
 const Dsidebar = ({ isOpen }) => {
@@ -71,6 +72,8 @@ const Dsidebar = ({ isOpen }) => {
           <FaChalkboardTeacher className="text-xl" />
           {isOpen && <span className="ml-4">SkillLens AI Coach</span>}
         </NavLink>
+        {/* Job Finder: navigate with suggested role if available */}
+        <JobFinderNav isOpen={isOpen} />
         <NavLink
           to="/dashboard/activity"
           className={({ isActive }) =>
@@ -95,6 +98,25 @@ const Dsidebar = ({ isOpen }) => {
         </NavLink>
       </nav>
     </aside>
+  );
+};
+
+const JobFinderNav = ({ isOpen }) => {
+  const navigate = useNavigate();
+  const handleClick = () => {
+    const role = (typeof window !== 'undefined') ? localStorage.getItem('suggestedRole') : null;
+    if (role) {
+      navigate(`/dashboard/jobs?role=${encodeURIComponent(role)}`);
+    } else {
+      navigate('/dashboard/jobs');
+    }
+  };
+
+  return (
+    <div onClick={handleClick} className={`flex items-center p-2 rounded hover:bg-blue-700 cursor-pointer`}>
+      <FaSearch className="text-xl" />
+      {isOpen && <span className="ml-4">Job Finder</span>}
+    </div>
   );
 };
 

@@ -104,60 +104,63 @@ def predict_role(req: PredictRequest):
 
 # complete tech skill list
 skill_list = [
-
     # programming languages
-    "python","java","c","c++","c#","javascript","typescript","go","rust","php","ruby","kotlin","swift",
+    "python", "java", "c", "c++", "c#", "javascript", "typescript", "go", "rust", "php", "ruby", "kotlin", "swift", "sql",
 
-    # frontend
-    "html","css","bootstrap","tailwind","sass","react","nextjs","vue","angular","redux",
-
-    # backend
-    "node","express","django","flask","spring boot","asp.net","laravel",
-
-    # database
-    "mysql","postgresql","mongodb","firebase","redis","oracle","sqlite",
-
-    # mern stack
-    "mern","rest api","graphql","jwt","authentication","authorization",
-
-    # devops
-    "docker","kubernetes","jenkins","git","github","gitlab","ci/cd",
-    "aws","azure","gcp","nginx","linux","terraform","ansible",
-
-    # machine learning
-    "machine learning","deep learning","data science","data analysis",
-    "pandas","numpy","scikit learn","tensorflow","keras","pytorch",
-    "nlp","computer vision","opencv","xgboost","lightgbm",
-
-    # ai tools
-    "openai","gemini","llm","langchain","huggingface","transformers",
-
-    # cybersecurity
-    "cybersecurity","ethical hacking","penetration testing",
-    "network security","cryptography","firewall","siem","kali linux",
-
-    # cloud
-    "cloud computing","serverless","microservices",
-
-    # mobile
-    "react native","flutter","android","ios",
-
-    # blockchain
-    "blockchain","solidity","web3",
-
-    # testing
-    "jest","mocha","selenium","cypress","unit testing",
+    # databases & queries
+    "mysql", "postgresql", "mongodb", "firebase", "redis", "oracle", "sqlite", "queries", "joins", "indexing", "data verification",
 
     # data engineering
-    "hadoop","spark","airflow","kafka","etl",
+    "data engineering", "data pipelines", "etl", "etl processes", "data ingestion", "data transformation", "data validation", "data pipeline",
+    "hadoop", "spark", "airflow", "kafka", "etl",
+
+    # visualization & BI
+    "power bi", "powerbi", "microsoft excel", "excel", "google looker studio", "looker studio", "tableau", "metabase",
+
+    # frontend
+    "html", "css", "bootstrap", "tailwind", "sass", "react", "nextjs", "vue", "angular", "redux",
+
+    # backend
+    "node", "express", "django", "flask", "spring boot", "asp.net", "laravel", "rest api", "graphql",
+
+    # fullstack / stacks
+    "mern", "mean", "mevn", "rest api", "graphql", "jwt", "authentication", "authorization",
+
+    # devops & cloud
+    "docker", "kubernetes", "jenkins", "git", "github", "gitlab", "ci/cd", "aws", "azure", "gcp", "s3", "ec2", "iam", "nginx", "linux", "terraform", "ansible",
+
+    # machine learning & data science
+    "machine learning", "deep learning", "data science", "data analysis", "pandas", "numpy", "scikit-learn", "scikit learn", "tensorflow", "keras", "pytorch",
+    "nlp", "natural language processing", "computer vision", "opencv", "xgboost", "lightgbm",
+
+    # ai tools
+    "openai", "gemini", "llm", "langchain", "huggingface", "transformers",
+
+    # cybersecurity
+    "cybersecurity", "ethical hacking", "penetration testing", "network security", "cryptography", "firewall", "siem", "kali linux",
+
+    # cloud concepts
+    "cloud computing", "serverless", "microservices", "s3", "ec2", "iam",
+
+    # mobile
+    "react native", "flutter", "android", "ios",
+
+    # blockchain
+    "blockchain", "solidity", "web3",
+
+    # testing
+    "jest", "mocha", "selenium", "cypress", "unit testing",
+
+    # core concepts & data modeling
+    "data modeling", "schema design", "data quality", "data quality checks", "debugging", "documentation",
+
+    # tools & methodologies
+    "jira", "notion", "agile", "scrum", "sdlc",
 
     # soft skills
-    "problem solving","teamwork","communication","leadership",
-    
-    
-    
-    
+    "problem solving", "teamwork", "communication", "leadership",
 ]
+
 
 
 # extract text from pdf
