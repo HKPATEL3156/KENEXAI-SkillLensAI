@@ -4,6 +4,7 @@ const User = require("../models/User");
 const Career = require("../models/Career");
 const bcrypt = require("bcryptjs");
 const Activity = require("../models/Activity");
+const parseAndSaveResume = require("../utils/parseAndSaveResume");
 
 // GET /api/profile/me
 exports.getProfile = async (req, res, next) => {
@@ -275,6 +276,15 @@ exports.uploadResume = async (req, res, next) => {
     }
 
     await user.save();
+
+    // ── ETL: parse resume and save structured data (non-blocking) ──
+    parseAndSaveResume({
+      userId: user._id,
+      relativePath,
+      absolutePath: req.file.path,
+    }).catch((e) =>
+      console.warn("[uploadResume] parseAndSaveResume error:", e.message),
+    );
 
     try {
       const update = await Career.findOneAndUpdate(

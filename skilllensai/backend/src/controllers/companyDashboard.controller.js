@@ -3,6 +3,7 @@ const User = require("../models/User");
 const QuizAttempt = require("../models/QuizAttempt");
 const JobRole = require("../models/JobRole");
 const Application = require("../models/Application");
+const ParsedResume = require("../models/ParsedResume");
 const jwt = require("jsonwebtoken");
 const fs = require("fs");
 const path = require("path");
@@ -680,6 +681,244 @@ exports.getApplication = async (req, res, next) => {
     };
 
     res.json({ application: result });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// GET /api/company/dashboard/candidates/:candidateId
+// Return a full aggregated candidate profile for the recruiter view.
+// Combines User profile + latest QuizAttempt + most recent Application (if any).
+exports.getCandidateProfile = async (req, res, next) => {
+  try {
+    const { candidateId } = req.params;
+
+    // Fetch full user profile
+    const user = await User.findById(candidateId).select("-password").lean();
+    if (!user) return res.status(404).json({ message: "Candidate not found" });
+
+    // Fetch the most recent submitted quiz attempt for this user
+    const quizAttempt = await QuizAttempt.findOne({
+      userId: candidateId,
+      status: "submitted",
+    })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    // Fetch the most recent application by this user across any of this company's jobs
+    const companyJobIds = await JobRole.find({
+      companyId: req.company.companyId,
+    })
+      .select("_id")
+      .lean()
+      .then((jobs) => jobs.map((j) => j._id));
+
+    const application =
+      companyJobIds.length > 0
+        ? await Application.findOne({
+            userId: candidateId,
+            jobRoleId: { $in: companyJobIds },
+          })
+            .sort({ createdAt: -1 })
+            .populate("jobRoleId", "title minScore skills")
+            .lean()
+        : null;
+
+    // Quiz score: prefer application-level quizScore, else use attempt marks
+    let quizScore = null;
+    let quizDetails = null;
+    if (application && application.quizScore != null) {
+      quizScore = application.quizScore;
+    } else if (quizAttempt) {
+      quizScore =
+        quizAttempt.totalMarks > 0
+          ? Math.round((quizAttempt.obtainedMarks / quizAttempt.totalMarks) * 100)
+          : 0;
+    }
+    if (quizAttempt) {
+      quizDetails = {
+        obtainedMarks: quizAttempt.obtainedMarks ?? null,
+        totalMarks: quizAttempt.totalMarks ?? null,
+        attemptedAt: quizAttempt.createdAt ?? null,
+        status: quizAttempt.status ?? null,
+      };
+    }
+
+    const resumePath =
+      (application && application.resumePath) || user.resumeFilePath || null;
+    const resumeUrl = resumePath
+      ? `http://localhost:5000${resumePath.startsWith("/") ? "" : "/"}${resumePath}`
+      : null;
+
+    const profile = {
+      candidate_id: user._id,
+      name: user.fullName || user.username || null,
+      email: user.email || null,
+      phone: user.mobileNumber || null,
+      location: user.primaryLocation || null,
+      headline: user.headline || null,
+      bio: user.bio || null,
+      openToWork: user.openToWork ?? false,
+      profileImage: user.profileImage || null,
+      accountType: user.accountType || null,
+      currentStatus: user.currentStatus || null,
+
+      // Skills
+      skills: user.skills || [],
+
+      // Experience
+      experience_years: user.experienceLevel ?? null,
+      experience: user.experience || [],
+
+      // Education
+      education: user.education || [],
+
+      // Projects
+      projects: user.projects || [],
+
+      // Achievements / Certifications
+      certifications: user.achievements || [],
+
+      // Social links
+      socialLinks: user.socialLinks || {},
+
+      // Activities
+      activities: user.activities || [],
+
+      // Quiz / assessment
+      quiz_score: quizScore,
+      quiz_details: quizDetails,
+
+      // Job match (resume score from application)
+      job_match_score: application ? application.resumeScore ?? null : null,
+      coverLetter: application ? application.coverLetter || null : null,
+      applicationStatus: application ? application.status || null : null,
+      appliedJob: application
+        ? {
+            id: application.jobRoleId?._id || null,
+            title: application.jobRoleId?.title || null,
+            minScore: application.jobRoleId?.minScore ?? null,
+          }
+        : null,
+
+      // Resume
+      resume_text: application ? application.resumeText || null : null,
+      resume_file_url: resumeUrl,
+
+      // Meta
+      registrationDate: user.createdAt || user.registrationDate || null,
+    };
+
+    res.json({ candidate: profile });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// GET /api/company/dashboard/resumes
+// Returns a list of all applicants who have uploaded resumes for this company's jobs.
+exports.getResumesForScreening = async (req, res, next) => {
+  try {
+    const companyId = req.company.companyId;
+
+    // Get all job IDs for this company
+    const jobs = await JobRole.find({ companyId }).select("_id title").lean();
+    const jobIds = jobs.map((j) => j._id);
+
+    if (jobIds.length === 0) {
+      return res.json({ resumes: [] });
+    }
+
+    // Get all applications with resumes across company jobs
+    const applications = await Application.find({
+      jobRoleId: { $in: jobIds },
+    })
+      .populate("userId", "fullName username email resumeFilePath")
+      .populate("jobRoleId", "title")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    // Deduplicate by userId, prefer application-level resumePath
+    const seen = new Set();
+    const resumes = [];
+    for (const app of applications) {
+      const uid = String(app.userId?._id);
+      if (!uid || seen.has(uid)) continue;
+      seen.add(uid);
+
+      const resumePath = app.resumePath || app.userId?.resumeFilePath || null;
+      const resumeUrl = resumePath
+        ? `http://localhost:5000${resumePath.startsWith("/") ? "" : "/"}${resumePath}`
+        : null;
+
+      resumes.push({
+        candidate_id: app.userId?._id,
+        username: app.userId?.fullName || app.userId?.username || app.userId?.email || "Unknown",
+        email: app.userId?.email || "",
+        resume_file_url: resumeUrl,
+        upload_date: app.createdAt,
+        job_title: app.jobRoleId?.title || "",
+      });
+    }
+
+    res.json({ resumes });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// GET /api/company/dashboard/parsed-resumes
+// Returns all ParsedResume documents for candidates who applied to this company's jobs.
+exports.getParsedResumes = async (req, res, next) => {
+  try {
+    const companyId = req.company.companyId;
+
+    // Gather all userIds who applied to this company's jobs
+    const jobs = await JobRole.find({ companyId }).select("_id").lean();
+    const jobIds = jobs.map((j) => j._id);
+
+    if (jobIds.length === 0) {
+      return res.json({ parsedResumes: [] });
+    }
+
+    const applications = await Application.find({
+      jobRoleId: { $in: jobIds },
+    })
+      .select("userId")
+      .lean();
+
+    const userIds = [...new Set(applications.map((a) => String(a.userId)))];
+
+    if (userIds.length === 0) {
+      return res.json({ parsedResumes: [] });
+    }
+
+    const parsed = await ParsedResume.find({ userId: { $in: userIds } })
+      .sort({ parsed_at: -1 })
+      .lean();
+
+    const result = parsed.map((pr) => {
+      const resumeUrl = pr.resume_file_path
+        ? `http://localhost:5000${
+            pr.resume_file_path.startsWith("/") ? "" : "/"
+          }${pr.resume_file_path}`
+        : null;
+      return {
+        candidate_id: pr.userId,
+        name: pr.name || null,
+        email: pr.email || null,
+        phone: pr.phone || null,
+        skills: pr.skills || [],
+        experience_years: pr.experience_years ?? 0,
+        education: pr.education || [],
+        certifications: pr.certifications || [],
+        job_role_predicted: pr.job_role_predicted || null,
+        resume_file_url: resumeUrl,
+        parsed_at: pr.parsed_at,
+      };
+    });
+
+    res.json({ parsedResumes: result });
   } catch (err) {
     next(err);
   }

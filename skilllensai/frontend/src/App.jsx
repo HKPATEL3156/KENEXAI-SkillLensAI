@@ -20,6 +20,7 @@ import AdminUsers from "./pages/AdminUsers";
 import AdminCompanies from "./pages/AdminCompanies";
 import AdminAnalytics from "./pages/AdminAnalytics";
 import AdminPending from "./pages/AdminPending";
+import CandidateProfileView from "./pages/CandidateProfileView";
 
 function App() {
   return (
@@ -53,6 +54,9 @@ function App() {
         {/* Exam route - standalone full-screen page (no dashboard layout) */}
         <Route path="/exam" element={<QuizPage />} />
         <Route path="/exam/:attemptId" element={<QuizPage />} />
+
+        {/* Candidate profile view for recruiters */}
+        <Route path="/candidate/:candidateId" element={<CandidateProfileView />} />
 
         {/* Dashboard Routes */}
         <Route path="/dashboard/*" element={<DashboardRoutes />} />

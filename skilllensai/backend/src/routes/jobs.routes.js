@@ -8,6 +8,7 @@ const auth = require("../middleware/auth.middleware");
 const { resumeUpload } = require("../utils/Upload");
 const fs = require("fs");
 const path = require("path");
+const parseAndSaveResume = require("../utils/parseAndSaveResume");
 
 // GET /api/jobs - public list of active jobs (all companies)
 router.get("/", async (req, res, next) => {
@@ -153,6 +154,19 @@ router.post(
         resumeScore: 0,
         piiSynthesized: false,
       });
+
+      // ── ETL: parse resume into structured ParsedResume doc (non-blocking) ──
+      if (req.file) {
+        parseAndSaveResume({
+          userId: req.user.id,
+          relativePath: resumePath,
+          absolutePath: req.file.path,
+          applicationId: app._id,
+        }).catch((e) =>
+          console.warn("[applyJob] parseAndSaveResume error:", e.message),
+        );
+      }
+
       res
         .status(201)
         .json({ message: "Application submitted", application: app });

@@ -95,4 +95,25 @@ router.patch(
   dashCtrl.updateApplication,
 );
 
+// GET full candidate profile by userId (for recruiter profile view)
+router.get(
+  "/dashboard/candidates/:candidateId",
+  dashCtrl.verifyCompany,
+  dashCtrl.getCandidateProfile,
+);
+
+// GET resume list for resume screening tab
+router.get(
+  "/dashboard/resumes",
+  dashCtrl.verifyCompany,
+  dashCtrl.getResumesForScreening,
+);
+
+// GET structured parsed resume data (ETL output) for resume screening tab
+router.get(
+  "/dashboard/parsed-resumes",
+  dashCtrl.verifyCompany,
+  dashCtrl.getParsedResumes,
+);
+
 module.exports = router;

@@ -125,6 +125,22 @@ export const updateApplication = (applicationId, data) =>
 export const getApplication = (applicationId) =>
   companyApi.get(`/company/dashboard/applications/${applicationId}`);
 
+// Recruiter: get full candidate profile by userId
+export const getCandidateProfileById = (candidateId) =>
+  companyApi.get(`/company/dashboard/candidates/${candidateId}`);
+
+// Recruiter: get list of resumes for resume screening tab
+export const getCompanyResumes = () =>
+  companyApi.get("/company/dashboard/resumes");
+
+// Recruiter: get structured parsed resume data (ETL output)
+export const getCandidatesParsedResumes = () =>
+  companyApi.get("/company/dashboard/parsed-resumes");
+
+// Recruiter: trigger resume screening (placeholder endpoint)
+export const startResumeScreening = () =>
+  companyApi.post("/company/dashboard/resumes/screen");
+
 // Student: apply to job
 export const applyToJob = (jobId) => api.post(`/jobs/${jobId}/apply`);
 
