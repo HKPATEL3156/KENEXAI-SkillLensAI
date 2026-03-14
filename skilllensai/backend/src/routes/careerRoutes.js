@@ -380,30 +380,43 @@ router.get("/predict-from-quiz", async (req, res) => {
     let skillsPayload = [];
     try {
       const answers = Array.isArray(summary.answers) ? summary.answers : [];
-      const qset = Array.isArray(attempt.questionSet) ? attempt.questionSet : [];
+      const qset = Array.isArray(attempt.questionSet)
+        ? attempt.questionSet
+        : [];
       if (answers.length && qset.length) {
         const map = {}; // skill -> {obt, max}
         for (const a of answers) {
           const qid = a.questionId ?? a.question ?? a.qid ?? a.questionId;
           // locate question in the stored questionSet
-          let q = qset.find((qq) => String(qq.id ?? qq.questionId ?? qq.qid) === String(qid));
+          let q = qset.find(
+            (qq) => String(qq.id ?? qq.questionId ?? qq.qid) === String(qid),
+          );
           if (!q) {
             const idx = parseInt(String(qid), 10);
             if (!Number.isNaN(idx) && qset[idx - 1]) q = qset[idx - 1];
           }
           if (!q) continue;
-          const sk = q.skill || q.skillName || q.tag || (Array.isArray(q.skills) ? q.skills[0] : null);
+          const sk =
+            q.skill ||
+            q.skillName ||
+            q.tag ||
+            (Array.isArray(q.skills) ? q.skills[0] : null);
           if (!sk) continue;
-          const obt = Number(a.obtainedMarks ?? a.obtained ?? a.score ?? 0) || 0;
+          const obt =
+            Number(a.obtainedMarks ?? a.obtained ?? a.score ?? 0) || 0;
           const max = Number(q.max ?? q.marks ?? q.mark ?? q.weight ?? 4) || 4;
           map[sk] = map[sk] || { obt: 0, max: 0 };
           map[sk].obt += obt;
           map[sk].max += max;
         }
-        const arr = Object.entries(map).map(([s, v]) => [s, v.max > 0 ? (v.obt / v.max) * 100 : 0]);
+        const arr = Object.entries(map).map(([s, v]) => [
+          s,
+          v.max > 0 ? (v.obt / v.max) * 100 : 0,
+        ]);
         arr.sort((a, b) => b[1] - a[1]);
         skillsPayload = arr.filter(([s, sc]) => sc >= 60).map(([s]) => s);
-        if (!skillsPayload.length) skillsPayload = arr.slice(0, 5).map(([s]) => s);
+        if (!skillsPayload.length)
+          skillsPayload = arr.slice(0, 5).map(([s]) => s);
       }
     } catch (e) {
       // ignore and fall back to legacy heuristics below
@@ -411,14 +424,26 @@ router.get("/predict-from-quiz", async (req, res) => {
 
     // legacy fallback heuristics
     if (!skillsPayload.length) {
-      if (summary.perSkillScores && typeof summary.perSkillScores === "object") {
-        const arr = Object.entries(summary.perSkillScores).map(([s, v]) => [s, Number(v) || 0]);
+      if (
+        summary.perSkillScores &&
+        typeof summary.perSkillScores === "object"
+      ) {
+        const arr = Object.entries(summary.perSkillScores).map(([s, v]) => [
+          s,
+          Number(v) || 0,
+        ]);
         arr.sort((a, b) => b[1] - a[1]);
         const topVal = arr.length ? arr[0][1] : 0;
-        const chosen = arr.filter(([s, sc]) => sc >= Math.max(0, topVal * 0.6)).map(([s]) => s);
-        skillsPayload = chosen.length ? chosen : arr.slice(0, 5).map(([s]) => s);
-
-      } else if (Array.isArray(summary.questionSkills) && summary.questionSkills.length) {
+        const chosen = arr
+          .filter(([s, sc]) => sc >= Math.max(0, topVal * 0.6))
+          .map(([s]) => s);
+        skillsPayload = chosen.length
+          ? chosen
+          : arr.slice(0, 5).map(([s]) => s);
+      } else if (
+        Array.isArray(summary.questionSkills) &&
+        summary.questionSkills.length
+      ) {
         const map = {};
         for (const q of summary.questionSkills) {
           const sk = q.skill || q.skillName || q.tag;
@@ -427,12 +452,18 @@ router.get("/predict-from-quiz", async (req, res) => {
           map[sk].obt += Number(q.obtained ?? q.score ?? 0);
           map[sk].max += Number(q.max ?? q.total ?? q.weight ?? 1);
         }
-        const arr = Object.entries(map).map(([s, v]) => [s, v.max > 0 ? (v.obt / v.max) * 100 : 0]);
+        const arr = Object.entries(map).map(([s, v]) => [
+          s,
+          v.max > 0 ? (v.obt / v.max) * 100 : 0,
+        ]);
         arr.sort((a, b) => b[1] - a[1]);
         skillsPayload = arr.filter(([s, sc]) => sc >= 60).map(([s]) => s);
-        if (!skillsPayload.length) skillsPayload = arr.slice(0, 5).map(([s]) => s);
-
-      } else if (Array.isArray(summary.perQuestion) && summary.perQuestion.length) {
+        if (!skillsPayload.length)
+          skillsPayload = arr.slice(0, 5).map(([s]) => s);
+      } else if (
+        Array.isArray(summary.perQuestion) &&
+        summary.perQuestion.length
+      ) {
         const map = {};
         for (const q of summary.perQuestion) {
           const sk = q.skill || q.skills || q.tag;
@@ -441,10 +472,14 @@ router.get("/predict-from-quiz", async (req, res) => {
           map[sk].obt += Number(q.obtained ?? q.score ?? 0);
           map[sk].max += Number(q.max ?? q.total ?? q.weight ?? 1);
         }
-        const arr = Object.entries(map).map(([s, v]) => [s, v.max > 0 ? (v.obt / v.max) * 100 : 0]);
+        const arr = Object.entries(map).map(([s, v]) => [
+          s,
+          v.max > 0 ? (v.obt / v.max) * 100 : 0,
+        ]);
         arr.sort((a, b) => b[1] - a[1]);
         skillsPayload = arr.filter(([s, sc]) => sc >= 60).map(([s]) => s);
-        if (!skillsPayload.length) skillsPayload = arr.slice(0, 5).map(([s]) => s);
+        if (!skillsPayload.length)
+          skillsPayload = arr.slice(0, 5).map(([s]) => s);
       }
     }
 
