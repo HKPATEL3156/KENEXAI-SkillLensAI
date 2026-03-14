@@ -6,9 +6,10 @@ skilllensai/**/*.env
 
 # Ignore backend uploads folder
 skilllensai/backend/uploads/
+skilllensai/backend/.env
 
 # Ignore extra folder in skilllensai
-skilllensai/extra/
+
 
 # Ignore Python cache in ml-service
 skilllensai/ml-service/__pycache__
