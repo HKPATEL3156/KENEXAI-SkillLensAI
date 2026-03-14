@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import api, { applyToJob } from '../services/api';
+import api, { applyToJob, applyToJobWithResume } from '../services/api';
 
 const JobDetail = () => {
   const { id } = useParams();
@@ -10,6 +10,8 @@ const JobDetail = () => {
   const [applying, setApplying] = useState(false);
   const [applied, setApplied] = useState(false);
   const [err, setErr] = useState('');
+  const [resumeFile, setResumeFile] = useState(null);
+  const [coverLetter, setCoverLetter] = useState('');
 
   useEffect(() => {
     const load = async () => {
@@ -33,7 +35,11 @@ const JobDetail = () => {
     setApplying(true);
     setErr('');
     try {
-      await applyToJob(id);
+      if (resumeFile || coverLetter) {
+        await applyToJobWithResume(id, resumeFile, coverLetter);
+      } else {
+        await applyToJob(id);
+      }
       setApplied(true);
     } catch (e) {
       setErr(e?.response?.data?.message || e.message || 'Apply failed');
@@ -63,6 +69,14 @@ const JobDetail = () => {
         </div>
 
         <div className="mt-4">
+          <div className="mb-3">
+            <label className="block text-sm font-medium mb-1">Attach resume (optional)</label>
+            <input type="file" accept="application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={(e)=>setResumeFile(e.target.files[0]||null)} />
+          </div>
+          <div className="mb-3">
+            <label className="block text-sm font-medium mb-1">Cover letter (optional)</label>
+            <textarea value={coverLetter} onChange={(e)=>setCoverLetter(e.target.value)} className="w-full p-2 border rounded" rows={4} />
+          </div>
           <div className="font-semibold mb-1">Skills</div>
           <div className="flex gap-2 flex-wrap">{(job.skills||[]).map((s,i)=>(<span key={i} className="text-xs bg-gray-100 px-2 py-1 rounded">{s}</span>))}</div>
         </div>

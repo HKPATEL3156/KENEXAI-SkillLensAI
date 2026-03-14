@@ -21,8 +21,14 @@ const applicationSchema = new mongoose.Schema(
     },
     quizScore: { type: Number },
     quizAttemptId: { type: mongoose.Schema.Types.ObjectId, ref: "QuizAttempt" },
+    // optional resume file path (relative web path)
+    resumePath: { type: String },
+    // extracted resume text (if parsed)
+    resumeText: { type: String, default: "" },
+    // optional cover letter provided during apply
+    coverLetter: { type: String, default: "" },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 // One application per user per job

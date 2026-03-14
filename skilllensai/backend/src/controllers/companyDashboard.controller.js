@@ -6,7 +6,15 @@ const Application = require("../models/Application");
 const jwt = require("jsonwebtoken");
 const fs = require("fs");
 const path = require("path");
-const pdfParse = require("pdf-parse");
+let pdfParse;
+try {
+  pdfParse = require("pdf-parse");
+} catch (e) {
+  // If pdf-parse is not installed, avoid crashing the whole app.
+  // JD parsing will be skipped and jobs will be created with empty description.
+  pdfParse = null;
+  console.warn("pdf-parse not available; JD PDF parsing is disabled.");
+}
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev_admin_secret";
 
@@ -31,7 +39,7 @@ exports.verifyCompany = (req, res, next) => {
 exports.getProfile = async (req, res, next) => {
   try {
     const company = await Company.findById(req.company.companyId).select(
-      "-password"
+      "-password",
     );
     if (!company) return res.status(404).json({ message: "Not found" });
     res.json({ company });
@@ -47,7 +55,7 @@ exports.updateProfile = async (req, res, next) => {
     const updated = await Company.findByIdAndUpdate(
       req.company.companyId,
       { companyName, contactName, contactPhone, address },
-      { new: true, runValidators: true }
+      { new: true, runValidators: true },
     ).select("-password");
     res.json({ company: updated });
   } catch (err) {
@@ -59,11 +67,22 @@ exports.updateProfile = async (req, res, next) => {
 exports.getStats = async (req, res, next) => {
   try {
     const companyId = req.company.companyId;
-    const companyJobs = await JobRole.find({ companyId, status: "active" }).select("_id minScore");
+    const companyJobs = await JobRole.find({
+      companyId,
+      status: "active",
+    }).select("_id minScore");
     const jobIds = companyJobs.map((j) => j._id);
-    const minScoreMap = Object.fromEntries(companyJobs.map((j) => [String(j._id), j.minScore || 0]));
+    const minScoreMap = Object.fromEntries(
+      companyJobs.map((j) => [String(j._id), j.minScore || 0]),
+    );
 
-    const [totalCandidates, totalAttempts, topAttempts, applications, applicationCount] = await Promise.all([
+    const [
+      totalCandidates,
+      totalAttempts,
+      topAttempts,
+      applications,
+      applicationCount,
+    ] = await Promise.all([
       User.countDocuments(),
       QuizAttempt.countDocuments({ status: "submitted" }),
       QuizAttempt.find({ status: "submitted" })
@@ -76,7 +95,9 @@ exports.getStats = async (req, res, next) => {
             .populate("jobRoleId", "title minScore")
             .lean()
         : [],
-      jobIds.length > 0 ? Application.countDocuments({ jobRoleId: { $in: jobIds } }) : 0,
+      jobIds.length > 0
+        ? Application.countDocuments({ jobRoleId: { $in: jobIds } })
+        : 0,
     ]);
 
     const avgAgg = await QuizAttempt.aggregate([
@@ -105,7 +126,9 @@ exports.getStats = async (req, res, next) => {
       for (const app of applications) {
         const score = app.quizScore ?? 0;
         if (score > 0) scores.push(score);
-        const jid = app.jobRoleId?._id ? String(app.jobRoleId._id) : String(app.jobRoleId);
+        const jid = app.jobRoleId?._id
+          ? String(app.jobRoleId._id)
+          : String(app.jobRoleId);
         const minScore = minScoreMap[jid] ?? 0;
         if (score >= minScore && app.userId) {
           const uid = String(app.userId._id || app.userId);
@@ -121,7 +144,10 @@ exports.getStats = async (req, res, next) => {
         }
       }
       matchedCount = matchedMap.size;
-      avgQuizScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : platformAvgScore;
+      avgQuizScore =
+        scores.length > 0
+          ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
+          : platformAvgScore;
     }
 
     const topPerformers =
@@ -155,7 +181,9 @@ exports.getJobs = async (req, res, next) => {
       .lean();
     const withCounts = await Promise.all(
       jobs.map(async (j) => {
-        const applicantCount = await Application.countDocuments({ jobRoleId: j._id });
+        const applicantCount = await Application.countDocuments({
+          jobRoleId: j._id,
+        });
         const matched =
           j.minScore > 0
             ? await Application.countDocuments({
@@ -164,7 +192,7 @@ exports.getJobs = async (req, res, next) => {
               })
             : applicantCount;
         return { ...j, applicants: applicantCount, matched };
-      })
+      }),
     );
     res.json({ jobs: withCounts });
   } catch (err) {
@@ -197,11 +225,15 @@ exports.createJob = async (req, res, next) => {
     let descriptionText = "";
 
     try {
-      const dataBuffer = fs.readFileSync(filePath);
-      const parsed = await pdfParse(dataBuffer);
-      descriptionText = parsed.text || "";
+      if (pdfParse) {
+        const dataBuffer = fs.readFileSync(filePath);
+        const parsed = await pdfParse(dataBuffer);
+        descriptionText = parsed.text || "";
+      } else {
+        // pdf-parse not present -> skip parsing
+        descriptionText = "";
+      }
     } catch (e) {
-      // If parsing fails, still keep the job but with empty description
       descriptionText = "";
     }
 
@@ -286,7 +318,10 @@ exports.getJobApplicants = async (req, res, next) => {
     const skip = (Number(page) - 1) * Number(limit);
     const [applications, total] = await Promise.all([
       Application.find({ jobRoleId: job._id })
-        .populate("userId", "fullName email username skills headline primaryLocation createdAt")
+        .populate(
+          "userId",
+          "fullName email username skills headline primaryLocation createdAt",
+        )
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(Number(limit))
@@ -325,15 +360,22 @@ exports.getCandidates = async (req, res, next) => {
       });
       if (!job) return res.status(404).json({ message: "Job not found" });
       const applications = await Application.find({ jobRoleId: job._id })
-        .populate("userId", "fullName email username skills headline primaryLocation createdAt")
+        .populate(
+          "userId",
+          "fullName email username skills headline primaryLocation createdAt",
+        )
         .sort({ createdAt: -1 })
         .lean();
       const userFilter = q
         ? (u) =>
             !u ||
-            (u.fullName && u.fullName.toLowerCase().includes(q.toLowerCase())) ||
+            (u.fullName &&
+              u.fullName.toLowerCase().includes(q.toLowerCase())) ||
             (u.email && u.email.toLowerCase().includes(q.toLowerCase())) ||
-            (Array.isArray(u.skills) && u.skills.some((s) => String(s).toLowerCase().includes(q.toLowerCase())))
+            (Array.isArray(u.skills) &&
+              u.skills.some((s) =>
+                String(s).toLowerCase().includes(q.toLowerCase()),
+              ))
         : () => true;
       const mapped = applications
         .filter((a) => a.userId && userFilter(a.userId))
@@ -345,7 +387,13 @@ exports.getCandidates = async (req, res, next) => {
         }));
       const total = mapped.length;
       const candidates = mapped.slice(skip, skip + Number(limit));
-      return res.json({ candidates, total, page: Number(page), limit: Number(limit), jobTitle: job.title });
+      return res.json({
+        candidates,
+        total,
+        page: Number(page),
+        limit: Number(limit),
+        jobTitle: job.title,
+      });
     }
 
     const filter = q
@@ -360,7 +408,9 @@ exports.getCandidates = async (req, res, next) => {
 
     const [candidates, total] = await Promise.all([
       User.find(filter)
-        .select("fullName email username skills headline primaryLocation createdAt")
+        .select(
+          "fullName email username skills headline primaryLocation createdAt",
+        )
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(Number(limit)),

@@ -87,10 +87,13 @@ companyApi.interceptors.request.use((config) => {
   return config;
 });
 export const companyLogin = (data) => companyApi.post("/company/login", data);
-export const getCompanyProfile = () => companyApi.get("/company/dashboard/profile");
-export const updateCompanyProfile = (data) => companyApi.patch("/company/dashboard/profile", data);
+export const getCompanyProfile = () =>
+  companyApi.get("/company/dashboard/profile");
+export const updateCompanyProfile = (data) =>
+  companyApi.patch("/company/dashboard/profile", data);
 export const getCompanyStats = () => companyApi.get("/company/dashboard/stats");
-export const getCompanyCandidates = (params) => companyApi.get("/company/dashboard/candidates", { params });
+export const getCompanyCandidates = (params) =>
+  companyApi.get("/company/dashboard/candidates", { params });
 export const getCompanyJobs = () => companyApi.get("/company/dashboard/jobs");
 export const createCompanyJob = (data) => {
   const form = new FormData();
@@ -103,10 +106,22 @@ export const createCompanyJob = (data) => {
     headers: { "Content-Type": "multipart/form-data" },
   });
 };
-export const updateCompanyJob = (id, data) => companyApi.patch(`/company/dashboard/jobs/${id}`, data);
-export const deleteCompanyJob = (id) => companyApi.delete(`/company/dashboard/jobs/${id}`);
+export const updateCompanyJob = (id, data) =>
+  companyApi.patch(`/company/dashboard/jobs/${id}`, data);
+export const deleteCompanyJob = (id) =>
+  companyApi.delete(`/company/dashboard/jobs/${id}`);
 
 // Student: apply to job
 export const applyToJob = (jobId) => api.post(`/jobs/${jobId}/apply`);
+
+// Apply with optional resume file and cover letter
+export const applyToJobWithResume = (jobId, file, coverLetter) => {
+  const form = new FormData();
+  if (file) form.append("resume", file);
+  if (coverLetter) form.append("coverLetter", coverLetter);
+  return api.post(`/jobs/${jobId}/apply`, form, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+};
 
 export default api;
