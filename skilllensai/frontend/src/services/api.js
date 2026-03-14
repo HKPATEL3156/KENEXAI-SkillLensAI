@@ -141,6 +141,10 @@ export const getCandidatesParsedResumes = () =>
 export const startResumeScreening = () =>
   companyApi.post("/company/dashboard/resumes/screen");
 
+// Recruiter: rank all ParsedResumes against a specific job
+export const screenCandidates = (jobId) =>
+  companyApi.post(`/company/dashboard/screen-resumes/${jobId}`);
+
 // Student: apply to job
 export const applyToJob = (jobId) => api.post(`/jobs/${jobId}/apply`);
 

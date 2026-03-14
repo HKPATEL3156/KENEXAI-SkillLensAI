@@ -116,4 +116,18 @@ router.get(
   dashCtrl.getParsedResumes,
 );
 
+// POST trigger resume screening (re-parse all resumes for this company's applicants)
+router.post(
+  "/dashboard/resumes/screen",
+  dashCtrl.verifyCompany,
+  dashCtrl.triggerResumeReparse,
+);
+
+// POST rank all ParsedResumes against a specific job
+router.post(
+  "/dashboard/screen-resumes/:jobId",
+  dashCtrl.verifyCompany,
+  dashCtrl.screenResumes,
+);
+
 module.exports = router;

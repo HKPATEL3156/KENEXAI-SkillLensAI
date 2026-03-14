@@ -815,8 +815,43 @@ exports.getCandidateProfile = async (req, res, next) => {
   }
 };
 
-// GET /api/company/dashboard/resumes
-// Returns a list of all applicants who have uploaded resumes for this company's jobs.
+// POST /api/company/dashboard/resumes/screen
+// Re-triggers parseAndSaveResume for all applicants of this company who have a resume.
+exports.triggerResumeReparse = async (req, res, next) => {
+  try {
+    const companyId = req.company.companyId;
+    const jobs = await JobRole.find({ companyId }).select("_id").lean();
+    const jobIds = jobs.map((j) => j._id);
+    if (jobIds.length === 0) return res.json({ message: "No jobs found", processed: 0 });
+
+    const applications = await Application.find({ jobRoleId: { $in: jobIds } })
+      .select("userId resumePath")
+      .lean();
+
+    const parseAndSaveResume = require("../utils/parseAndSaveResume");
+    const backendRoot = path.join(__dirname, "../../");
+    const seen = new Set();
+    let processed = 0;
+
+    for (const app of applications) {
+      const uid = String(app.userId);
+      if (seen.has(uid) || !app.resumePath) continue;
+      seen.add(uid);
+      const absolutePath = path.join(backendRoot, app.resumePath);
+      parseAndSaveResume({
+        userId: app.userId,
+        relativePath: app.resumePath,
+        absolutePath,
+      }).catch(() => {});
+      processed++;
+    }
+
+    res.json({ message: "Screening started", processed });
+  } catch (err) {
+    next(err);
+  }
+};
+
 exports.getResumesForScreening = async (req, res, next) => {
   try {
     const companyId = req.company.companyId;
@@ -862,6 +897,49 @@ exports.getResumesForScreening = async (req, res, next) => {
     }
 
     res.json({ resumes });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// POST /api/company/dashboard/screen-resumes/:jobId
+// Score and rank ALL ParsedResume documents against the given job.
+exports.screenResumes = async (req, res, next) => {
+  try {
+    const { jobId } = req.params;
+    const job = await JobRole.findOne({
+      _id: jobId,
+      companyId: req.company.companyId,
+    }).lean();
+    if (!job) return res.status(404).json({ message: "Job not found" });
+
+    const parsedResumes = await ParsedResume.find({}).lean();
+    if (parsedResumes.length === 0) {
+      return res.json({
+        jobId: job._id,
+        jobTitle: job.title,
+        jobDescription: job.description || "",
+        requiredSkills: job.skills || [],
+        totalCandidates: 0,
+        screened: 0,
+        results: [],
+      });
+    }
+
+    const scoreResume = require("../utils/scoreResume");
+    const results = parsedResumes
+      .map((pr) => scoreResume(pr, job))
+      .sort((a, b) => b.scores.totalScore - a.scores.totalScore);
+
+    res.json({
+      jobId: job._id,
+      jobTitle: job.title,
+      jobDescription: job.description || "",
+      requiredSkills: job.skills || [],
+      totalCandidates: parsedResumes.length,
+      screened: results.length,
+      results,
+    });
   } catch (err) {
     next(err);
   }

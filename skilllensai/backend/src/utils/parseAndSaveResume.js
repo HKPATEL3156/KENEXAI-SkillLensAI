@@ -53,7 +53,7 @@ async function parseAndSaveResume({ userId, relativePath, absolutePath, applicat
   try {
     const mlRes = await axios.post(
       `${ML_BASE}/extract-skills`,
-      { filepath: absolutePath },
+      { filepath: relativePath },
       { timeout: 30000 },
     );
     skills = Array.isArray(mlRes.data?.skills) ? mlRes.data.skills : [];
