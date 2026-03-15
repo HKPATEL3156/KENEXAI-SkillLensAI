@@ -1,0 +1,6 @@
+# SkillLens AI — Data Warehouse requirements
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+duckdb>=0.10.0
+pymongo>=4.6.0
+faker>=24.0.0

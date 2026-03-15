@@ -77,6 +77,11 @@ const AdminShell = ({ active, children, pendingCount = 0 }) => {
               label="Analytics"
               active={current === "analytics"}
             />
+            <NavItem
+              to="/admin/warehouse"
+              label="🏛️ Data Warehouse"
+              active={current === "warehouse"}
+            />
           </nav>
           <div className="mt-auto border-t pt-4 text-xs text-slate-500">
             Use this panel to oversee student activity, company onboarding, and

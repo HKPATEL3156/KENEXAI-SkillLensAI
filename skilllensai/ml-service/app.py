@@ -1,5 +1,5 @@
 # library for api
-from fastapi import FastAPI
+from fastapi import FastAPI, Query
 from pydantic import BaseModel
 import pdfplumber  # library for read pdf
 import os  # library for path
@@ -11,7 +11,8 @@ from fastapi.middleware.cors import CORSMiddleware
 import sys
 import types
 
-app = FastAPI()  # create app with fastapi
+app = FastAPI(title="SkillLens AI ML Service", version="2.0.0")  # create app with fastapi
+
 
 # Enable CORS for development (frontend will call this service directly)
 app.add_middleware(
@@ -207,3 +208,45 @@ def extract_skill(data: filedata):
     skills = find_skill(text)
 
     return {"skills": skills}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DATA SIMULATION ROUTES
+# Import simulator lazily so the service still starts if pymongo/faker are missing
+# ─────────────────────────────────────────────────────────────────────────────
+try:
+    import data_simulator as _sim
+
+    class SimulateStartRequest(BaseModel):
+        interval_seconds: int = 120  # seconds between batches
+        batch_size: int = 3          # synthetic candidates per batch
+
+    @app.post("/simulate/start", tags=["Simulation"])
+    def simulate_start(req: SimulateStartRequest):
+        """Start the background data simulation loop."""
+        return _sim.start_simulation(req.interval_seconds, req.batch_size)
+
+    @app.post("/simulate/stop", tags=["Simulation"])
+    def simulate_stop():
+        """Stop the running simulation."""
+        return _sim.stop_simulation()
+
+    @app.get("/simulate/status", tags=["Simulation"])
+    def simulate_status():
+        """Return current simulation status and stats."""
+        return _sim.get_simulation_status()
+
+    @app.post("/simulate/run-once", tags=["Simulation"])
+    def simulate_run_once(batch_size: int = Query(default=3, ge=1, le=50)):
+        """Run one immediate batch (without starting the loop)."""
+        generated = _sim.run_one_batch(batch_size)
+        return {"status": "ok", "generated": generated}
+
+    @app.delete("/simulate/purge", tags=["Simulation"])
+    def simulate_purge():
+        """Delete all synthetic (_synthetic=True) documents from the DB."""
+        return _sim.purge_synthetic_data()
+
+except ImportError as _e:
+    import warnings
+    warnings.warn(f"data_simulator not available ({_e}). Simulation routes disabled.")

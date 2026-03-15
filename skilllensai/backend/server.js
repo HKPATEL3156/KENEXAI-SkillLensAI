@@ -38,6 +38,7 @@ const quizRoutes = require("./src/routes/quizRoutes");
 const companyRoutes = require("./src/routes/company.routes");
 const adminRoutes = require("./src/routes/admin.routes");
 const jobsRoutes = require("./src/routes/jobs.routes");
+const warehouseRoutes = require("./src/routes/warehouse.routes");
 
 // Use routes
 app.use("/api/career", careerRoutes);
@@ -48,6 +49,7 @@ app.use("/api/quiz", quizRoutes);
 app.use("/api/company", companyRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/jobs", jobsRoutes);
+app.use("/api/warehouse", warehouseRoutes);
 
 // Centralized error handler
 const errorHandler = require("./src/middleware/errorHandler");

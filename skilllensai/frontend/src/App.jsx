@@ -21,6 +21,7 @@ import AdminCompanies from "./pages/AdminCompanies";
 import AdminAnalytics from "./pages/AdminAnalytics";
 import AdminPending from "./pages/AdminPending";
 import CandidateProfileView from "./pages/CandidateProfileView";
+import AdminWarehouse from "./pages/AdminWarehouse";
 
 function App() {
   return (
@@ -40,6 +41,7 @@ function App() {
         <Route path="/admin/companies" element={<AdminCompanies />} />
         <Route path="/admin/analytics" element={<AdminAnalytics />} />
         <Route path="/admin/pending" element={<AdminPending />} />
+        <Route path="/admin/warehouse" element={<AdminWarehouse />} />
 
         {/* Company Dashboard Routes */}
         <Route path="/company/dashboard" element={<CompanyDashboardHome />} />
