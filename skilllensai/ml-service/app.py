@@ -4,6 +4,7 @@ from pydantic import BaseModel  # type: ignore
 import pdfplumber  # type: ignore
 import os
 import re
+import time
 from typing import List, Optional, Any, Dict
 import joblib  # type: ignore
 import pandas as pd  # type: ignore
@@ -269,6 +270,29 @@ class ChatRequest(BaseModel):
     context: Dict[str, Any] = {}
 
 
+def build_fallback_reply(role: str, context: dict, user_message: str) -> str:
+    if role == "recruiter":
+        jobs = context.get("active_jobs", [])
+        cands = context.get("candidates", [])
+        top_job = jobs[0]["title"] if jobs and isinstance(jobs[0], dict) and jobs[0].get("title") else "your open role"
+        return (
+            "I am temporarily in fallback mode, but I can still help. "
+            f"You currently have {len(jobs)} active roles and {len(cands)} visible candidates. "
+            f"For '{top_job}', shortlist candidates with strong skill overlap and highest experience fit first. "
+            "If you share one job title and must-have skills, I will generate a precise screening checklist."
+        )
+
+    profile = context.get("profile", {})
+    skills = profile.get("skills", []) if isinstance(profile, dict) else []
+    skill_preview = ", ".join(skills[:5]) if skills else "your core technical skills"
+    return (
+        "I am temporarily in fallback mode, but I can still guide you. "
+        f"Start by highlighting {skill_preview} in your resume bullets with measurable impact. "
+        "Then apply to roles with at least 60% skill match and tailor one project per application. "
+        "If you share a target role, I will give you a role-specific 7-day prep plan."
+    )
+
+
 def build_system_prompt(role: str, context: dict) -> str:
     """Build a role-specific system prompt with context embedded as readable text."""
     if role == "recruiter":
@@ -348,29 +372,64 @@ def chat(req: ChatRequest):
     context = req.context or {}
     system_prompt = build_system_prompt(req.role, context)
 
-    try:
-        client = OpenAI(
-            api_key=api_key,
-            base_url="https://openrouter.ai/api/v1",
-        )
+    client = OpenAI(
+        api_key=api_key,
+        base_url="https://openrouter.ai/api/v1",
+    )
 
-        response = client.chat.completions.create(
-            model="mistralai/mistral-small-3.1-24b-instruct:free",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user",   "content": req.message},
-            ],
-            temperature=0.7,
-            max_tokens=1024,
-        )
+    # Try multiple models because free-tier providers can be temporarily saturated.
+    model_list_raw = os.getenv(
+        "OPENROUTER_MODELS",
+        "mistralai/mistral-small-3.1-24b-instruct:free,openrouter/auto",
+    )
+    model_list = [m.strip() for m in model_list_raw.split(",") if m.strip()]
 
-        reply = response.choices[0].message.content or "I couldn't generate a response. Please try again."
-        return {"reply": reply.strip()}
+    last_err = ""
+    saw_rate_limit = False
 
-    except Exception as e:
-        err_str = str(e)
-        import traceback
-        traceback.print_exc()
-        if "429" in err_str or "rate" in err_str.lower() or "quota" in err_str.lower():
-            return {"reply": None, "error": "RATE_LIMITED: " + err_str}
-        return {"reply": None, "error": err_str}
+    for model_name in model_list:
+        # Retry each model once after a short delay for transient 429s.
+        for attempt in range(2):
+            try:
+                response = client.chat.completions.create(
+                    model=model_name,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": req.message},
+                    ],
+                    temperature=0.7,
+                    max_tokens=512,
+                )
+                reply = response.choices[0].message.content
+                if not reply or not str(reply).strip():
+                    reply = build_fallback_reply(req.role, context, req.message)
+                return {"reply": reply.strip(), "model": model_name}
+            except Exception as e:
+                err_str = str(e)
+                last_err = err_str
+                low = err_str.lower()
+                is_rate_limited = (
+                    "429" in err_str
+                    or "rate" in low
+                    or "quota" in low
+                    or "temporarily rate-limited" in low
+                )
+                if is_rate_limited:
+                    saw_rate_limit = True
+                    if attempt == 0:
+                        time.sleep(0.8)
+                    continue
+                # Non-rate-limit error: skip to next model rather than failing immediately.
+                break
+
+    if saw_rate_limit:
+        return {
+            "reply": build_fallback_reply(req.role, context, req.message),
+            "fallback": True,
+            "error": "RATE_LIMITED: " + (last_err or "All providers are temporarily busy"),
+        }
+    return {
+        "reply": build_fallback_reply(req.role, context, req.message),
+        "fallback": True,
+        "error": last_err or "Unable to generate response",
+    }

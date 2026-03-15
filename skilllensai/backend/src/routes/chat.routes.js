@@ -24,6 +24,22 @@ const Application = require("../models/Application");
 const Company = require("../models/Company");
 
 const ML_BASE = process.env.ML_SERVICE_URL || process.env.ML_BASE_URL || "http://localhost:8000";
+const ML_CHAT_TIMEOUT_MS = Number(process.env.ML_CHAT_TIMEOUT_MS || 90000);
+const ML_CHAT_RETRIES = Number(process.env.ML_CHAT_RETRIES || 1);
+
+async function callMlChat(payload) {
+  let lastError;
+  for (let attempt = 0; attempt <= ML_CHAT_RETRIES; attempt++) {
+    try {
+      return await axios.post(`${ML_BASE}/chat`, payload, { timeout: ML_CHAT_TIMEOUT_MS });
+    } catch (err) {
+      lastError = err;
+      const isTimeout = err?.code === "ECONNABORTED" || String(err?.message || "").toLowerCase().includes("timeout");
+      if (!isTimeout || attempt === ML_CHAT_RETRIES) break;
+    }
+  }
+  throw lastError;
+}
 
 // ─── Candidate Chat ─────────────────────────────────────────────────────────
 // POST /api/chat/candidate
@@ -86,11 +102,7 @@ router.post("/candidate", auth, async (req, res, next) => {
     };
 
     // 4. Call ML /chat
-    const mlRes = await axios.post(
-      `${ML_BASE}/chat`,
-      { message: message.trim(), role: "candidate", context },
-      { timeout: 30000 },
-    );
+    const mlRes = await callMlChat({ message: message.trim(), role: "candidate", context });
 
     // If ML service returned an error, surface it to the client
     if (!mlRes.data.reply && mlRes.data.error) {
@@ -103,6 +115,10 @@ router.post("/candidate", auth, async (req, res, next) => {
 
     return res.json({ reply: mlRes.data.reply || "I couldn't generate a response. Please try again." });
   } catch (err) {
+    const isTimeout = err?.code === "ECONNABORTED" || String(err?.message || "").toLowerCase().includes("timeout");
+    if (isTimeout) {
+      return res.status(504).json({ message: "AI response is taking longer than expected. Please try again." });
+    }
     if (err.response?.data) {
       return res.status(502).json({ message: "AI service error.", detail: err.response.data });
     }
@@ -163,11 +179,7 @@ router.post("/company", dashCtrl.verifyCompany, async (req, res, next) => {
     };
 
     // 5. Call ML /chat
-    const mlRes = await axios.post(
-      `${ML_BASE}/chat`,
-      { message: message.trim(), role: "recruiter", context },
-      { timeout: 30000 },
-    );
+    const mlRes = await callMlChat({ message: message.trim(), role: "recruiter", context });
 
     // If ML service returned an error, surface it to the client
     if (!mlRes.data.reply && mlRes.data.error) {
@@ -180,6 +192,10 @@ router.post("/company", dashCtrl.verifyCompany, async (req, res, next) => {
 
     return res.json({ reply: mlRes.data.reply || "I couldn't generate a response. Please try again." });
   } catch (err) {
+    const isTimeout = err?.code === "ECONNABORTED" || String(err?.message || "").toLowerCase().includes("timeout");
+    if (isTimeout) {
+      return res.status(504).json({ message: "AI response is taking longer than expected. Please try again." });
+    }
     if (err.response?.data) {
       return res.status(502).json({ message: "AI service error.", detail: err.response.data });
     }

@@ -45,6 +45,19 @@ const ChatWidget = ({
     const text = input.trim();
     if (!text || loading) return;
 
+    // Guard against stale UI state where the widget is visible but token is missing.
+    const isCompanyChat = endpoint.includes("/chat/company");
+    const requiredToken = isCompanyChat
+      ? localStorage.getItem("companyToken")
+      : localStorage.getItem("token");
+    if (!requiredToken) {
+      const loginHint = isCompanyChat
+        ? "Session expired. Please login again as company."
+        : "Session expired. Please login again.";
+      setMessages((prev) => [...prev, { role: "ai", text: `⚠️ ${loginHint}`, isError: true }]);
+      return;
+    }
+
     const userMsg = { role: "user", text };
     setMessages((prev) => [...prev.slice(-19), userMsg]); // keep max 20 messages
     setInput("");
@@ -55,8 +68,14 @@ const ChatWidget = ({
       const reply = res.data.reply || "Sorry, I couldn't get a response right now.";
       setMessages((prev) => [...prev, { role: "ai", text: reply }]);
     } catch (e) {
+      const detailText =
+        typeof e?.response?.data?.detail === "string"
+          ? e.response.data.detail
+          : e?.response?.data?.detail?.message || "";
       const errMsg =
         e?.response?.data?.message ||
+        e?.response?.data?.error ||
+        detailText ||
         "Something went wrong. Please check your connection and try again.";
       setMessages((prev) => [...prev, { role: "ai", text: `⚠️ ${errMsg}`, isError: true }]);
     } finally {
