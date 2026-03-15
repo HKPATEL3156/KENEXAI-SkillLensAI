@@ -80,7 +80,7 @@ export const changePassword = (data) => api.post("/auth/change-password", data);
 export const deleteAccount = () => api.delete("/auth/delete-account");
 
 // Company dashboard APIs
-const companyApi = axios.create({ baseURL: "/api" });
+export const companyApi = axios.create({ baseURL: "/api" });
 companyApi.interceptors.request.use((config) => {
   const token = localStorage.getItem("companyToken");
   if (token) config.headers.Authorization = `Bearer ${token}`;
@@ -166,5 +166,11 @@ export const applyToJobWithResume = (
     headers: { "Content-Type": "multipart/form-data" },
   });
 };
+
+// ── Chat (RAG Chatbot) ────────────────────────────────────────────────────────
+// Candidate persona — uses candidate JWT via `api`
+export const chatCandidate = (message) => api.post("/chat/candidate", { message });
+// Recruiter persona — uses company JWT via `companyApi`
+export const chatCompany = (message) => companyApi.post("/chat/company", { message });
 
 export default api;

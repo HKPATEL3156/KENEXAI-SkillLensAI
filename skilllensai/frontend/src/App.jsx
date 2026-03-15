@@ -22,8 +22,14 @@ import AdminAnalytics from "./pages/AdminAnalytics";
 import AdminPending from "./pages/AdminPending";
 import CandidateProfileView from "./pages/CandidateProfileView";
 import AdminWarehouse from "./pages/AdminWarehouse";
+import ChatWidget from "./components/ChatWidget";
+import api, { companyApi } from "./services/api";
 
 function App() {
+  // Determine which chat persona to show based on stored tokens
+  const candidateToken = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  const companyToken = typeof window !== "undefined" ? localStorage.getItem("companyToken") : null;
+
   return (
     <BrowserRouter>
       <Routes>
@@ -63,6 +69,31 @@ function App() {
         {/* Dashboard Routes */}
         <Route path="/dashboard/*" element={<DashboardRoutes />} />
       </Routes>
+
+      {/* ── Global Floating Chat Widgets ── */}
+      {/* Recruiter Assistant: shown when company is logged in */}
+      {companyToken && (
+        <ChatWidget
+          axiosInstance={companyApi}
+          endpoint="/chat/company"
+          title="Recruiter Assistant"
+          subtitle="AI-powered hiring insights"
+          placeholder="e.g. Who is the best candidate for my React role?"
+          accentColor="purple"
+        />
+      )}
+
+      {/* Career Assistant: shown when candidate is logged in (and not on company session) */}
+      {candidateToken && !companyToken && (
+        <ChatWidget
+          axiosInstance={api}
+          endpoint="/chat/candidate"
+          title="Career Assistant"
+          subtitle="Powered by Gemini AI"
+          placeholder="e.g. Which jobs am I best suited for?"
+          accentColor="indigo"
+        />
+      )}
     </BrowserRouter>
   );
 }

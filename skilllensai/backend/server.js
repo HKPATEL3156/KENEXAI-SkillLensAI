@@ -37,6 +37,7 @@ const activityRoutes = require("./src/routes/activity.routes");
 const quizRoutes = require("./src/routes/quizRoutes");
 const companyRoutes = require("./src/routes/company.routes");
 const adminRoutes = require("./src/routes/admin.routes");
+const chatRoutes = require("./src/routes/chat.routes");
 const jobsRoutes = require("./src/routes/jobs.routes");
 const warehouseRoutes = require("./src/routes/warehouse.routes");
 
@@ -50,6 +51,8 @@ app.use("/api/company", companyRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/jobs", jobsRoutes);
 app.use("/api/warehouse", warehouseRoutes);
+app.use("/api/chat", chatRoutes);
+app.use("/api/chat", chatRoutes);
 
 // Centralized error handler
 const errorHandler = require("./src/middleware/errorHandler");

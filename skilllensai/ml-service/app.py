@@ -1,18 +1,28 @@
 # library for api
-from fastapi import FastAPI, Query
-from pydantic import BaseModel
-import pdfplumber  # library for read pdf
-import os  # library for path
-import re  # library for regex
-from typing import List, Optional
-import joblib
-import pandas as pd
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI, Query  # type: ignore
+from pydantic import BaseModel  # type: ignore
+import pdfplumber  # type: ignore
+import os
+import re
+from typing import List, Optional, Any, Dict
+import joblib  # type: ignore
+import pandas as pd  # type: ignore
+from fastapi.middleware.cors import CORSMiddleware  # type: ignore
 import sys
 import types
 
-app = FastAPI(title="SkillLens AI ML Service", version="2.0.0")  # create app with fastapi
+# Load .env (initial load at startup)
+from dotenv import load_dotenv, dotenv_values  # type: ignore
+load_dotenv(override=True)
 
+from openai import OpenAI  # type: ignore
+
+def get_openrouter_key() -> str:
+    """Re-read .env on every call so key changes work without restart."""
+    fresh = dotenv_values()
+    return fresh.get("OPENROUTER_API_KEY") or os.getenv("OPENROUTER_API_KEY", "")  # type: ignore[return-value]
+
+app = FastAPI(title="SkillLens AI ML Service", version="2.0.0")  # create app with fastapi
 
 # Enable CORS for development (frontend will call this service directly)
 app.add_middleware(
@@ -250,3 +260,117 @@ try:
 except ImportError as _e:
     import warnings
     warnings.warn(f"data_simulator not available ({_e}). Simulation routes disabled.")
+
+# ── Gemini RAG Chat Endpoint ───────────────────────────────────────────────────
+
+class ChatRequest(BaseModel):
+    message: str
+    role: str = "candidate"   # "candidate" or "recruiter"
+    context: Dict[str, Any] = {}
+
+
+def build_system_prompt(role: str, context: dict) -> str:
+    """Build a role-specific system prompt with context embedded as readable text."""
+    if role == "recruiter":
+        company = context.get("company_name", "your company")
+        jobs = context.get("active_jobs", [])
+        candidates = context.get("candidates", [])
+
+        jobs_text = "\n".join(
+            f"- {j.get('title','?')} | Skills: {', '.join(j.get('skills',[]))} | Min exp: {j.get('min_experience',0)} yrs"
+            for j in jobs
+        ) or "No active jobs."
+
+        cands_text = "\n".join(
+            (
+                f"- {c.get('name','?')} | Skills: {', '.join(c.get('skills',[])[:8])} | "
+                f"Exp: {c.get('experience_years',0)} yrs | "
+                f"Predicted role: {c.get('predicted_role','unknown')} | "
+                f"Certifications: {len(c.get('certifications',[]))}"
+            )
+            for c in candidates
+        ) or "No candidate data yet."
+
+        return (
+            f"You are a smart recruitment assistant for {company}. "
+            f"Help the recruiter make data-driven hiring decisions.\n\n"
+            f"ACTIVE JOB ROLES:\n{jobs_text}\n\n"
+            f"CANDIDATE POOL ({len(candidates)} candidates):\n{cands_text}\n\n"
+            f"Answer concisely and factually based only on the data above. "
+            f"If comparing candidates, rank them clearly."
+        )
+    else:
+        # candidate persona
+        profile = context.get("profile", {})
+        parsed = context.get("parsed_resume", {})
+        jobs = context.get("available_jobs", [])
+
+        name = profile.get("name", "the candidate")
+        skills = profile.get("skills", []) or (parsed or {}).get("skills", [])
+        exp_years = profile.get("experience_years", 0) or (parsed or {}).get("experience_years", 0)
+        predicted_role = (parsed or {}).get("job_role_predicted", "unknown")
+        education = profile.get("education", [])
+        edu_text = ", ".join(
+            f"{e.get('level',e.get('degree',''))} from {e.get('institution','')}"
+            for e in education[:2]
+            if e.get("institution")
+        ) or "Not specified"
+
+        resume_text = (parsed or {}).get("resume_text", "")
+        resume_snippet = resume_text[:800] if resume_text else "Not available"  # type: ignore[index]
+
+        jobs_text = "\n".join(
+            f"- {j.get('title','?')} @ {j.get('company','?')} | Skills: {', '.join(j.get('skills',[]))} | Min exp: {j.get('min_experience',0)} yrs"
+            for j in jobs[:10]
+        ) or "No jobs available."
+
+        return (
+            f"You are a helpful AI career assistant for {name}.\n\n"
+            f"CANDIDATE PROFILE:\n"
+            f"- Name: {name}\n"
+            f"- Skills: {', '.join(skills[:15]) or 'None listed'}\n"  # type: ignore[index]
+            f"- Experience: {exp_years} years\n"
+            f"- Education: {edu_text}\n"
+            f"- Predicted role: {predicted_role}\n"
+            f"- Resume excerpt: {resume_snippet}\n\n"
+            f"AVAILABLE JOBS ON PLATFORM:\n{jobs_text}\n\n"
+            f"Give personalised, actionable career advice. Be concise and encouraging."
+        )
+
+
+@app.post("/chat")
+def chat(req: ChatRequest):
+    # Re-read key from .env on every request so changes work without restart
+    api_key = get_openrouter_key()
+    if not api_key:
+        return {"reply": None, "error": "OPENROUTER_API_KEY not configured in ml-service/.env"}
+
+    context = req.context or {}
+    system_prompt = build_system_prompt(req.role, context)
+
+    try:
+        client = OpenAI(
+            api_key=api_key,
+            base_url="https://openrouter.ai/api/v1",
+        )
+
+        response = client.chat.completions.create(
+            model="mistralai/mistral-small-3.1-24b-instruct:free",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user",   "content": req.message},
+            ],
+            temperature=0.7,
+            max_tokens=1024,
+        )
+
+        reply = response.choices[0].message.content or "I couldn't generate a response. Please try again."
+        return {"reply": reply.strip()}
+
+    except Exception as e:
+        err_str = str(e)
+        import traceback
+        traceback.print_exc()
+        if "429" in err_str or "rate" in err_str.lower() or "quota" in err_str.lower():
+            return {"reply": None, "error": "RATE_LIMITED: " + err_str}
+        return {"reply": None, "error": err_str}
